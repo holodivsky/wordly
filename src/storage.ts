@@ -1,36 +1,109 @@
-import type { NewWord, Word } from './types';
+import type { NewWord, Word, WordList } from './types';
 
-const STORAGE_KEY = 'gvt.words.v1';
+const LISTS_KEY = 'gvt.lists.v1';
+const ACTIVE_LIST_KEY = 'gvt.activeListId.v1';
+const LEGACY_WORDS_KEY = 'gvt.words.v1';
 
 function generateId(): string {
   if ('randomUUID' in crypto) return crypto.randomUUID();
-  return `w_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  return `id_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-export function loadWords(): Word[] {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return [];
+/** One-time migration from the earlier single-list version of the app. */
+function migrateLegacyWords(): WordList[] | null {
+  const raw = localStorage.getItem(LEGACY_WORDS_KEY);
+  if (!raw) return null;
+  localStorage.removeItem(LEGACY_WORDS_KEY);
   try {
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed as Word[];
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    return [{ id: generateId(), name: 'Мої слова', words: parsed as Word[] }];
   } catch {
-    return [];
+    return null;
   }
 }
 
-export function saveWords(words: Word[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(words));
+export function loadLists(): WordList[] {
+  const raw = localStorage.getItem(LISTS_KEY);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed as WordList[];
+    } catch {
+      // fall through to migration/empty
+    }
+  }
+  const migrated = migrateLegacyWords();
+  if (migrated) {
+    saveLists(migrated);
+    return migrated;
+  }
+  return [];
+}
+
+export function saveLists(lists: WordList[]): void {
+  localStorage.setItem(LISTS_KEY, JSON.stringify(lists));
+}
+
+export function getList(listId: string): WordList | undefined {
+  return loadLists().find((l) => l.id === listId);
+}
+
+export function getActiveListId(): string | null {
+  const lists = loadLists();
+  if (lists.length === 0) return null;
+  const stored = localStorage.getItem(ACTIVE_LIST_KEY);
+  if (stored && lists.some((l) => l.id === stored)) return stored;
+  const fallback = lists[0].id;
+  localStorage.setItem(ACTIVE_LIST_KEY, fallback);
+  return fallback;
+}
+
+export function setActiveListId(id: string): void {
+  localStorage.setItem(ACTIVE_LIST_KEY, id);
+}
+
+export function createList(name: string): WordList {
+  const lists = loadLists();
+  const list: WordList = { id: generateId(), name: name.trim() || 'Без назви', words: [] };
+  lists.push(list);
+  saveLists(lists);
+  setActiveListId(list.id);
+  return list;
+}
+
+export function renameList(listId: string, name: string): void {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  const lists = loadLists();
+  const idx = lists.findIndex((l) => l.id === listId);
+  if (idx === -1) return;
+  lists[idx] = { ...lists[idx], name: trimmed };
+  saveLists(lists);
+}
+
+export function deleteList(listId: string): void {
+  const lists = loadLists().filter((l) => l.id !== listId);
+  saveLists(lists);
+  if (localStorage.getItem(ACTIVE_LIST_KEY) === listId) {
+    if (lists.length > 0) setActiveListId(lists[0].id);
+    else localStorage.removeItem(ACTIVE_LIST_KEY);
+  }
 }
 
 function dedupeKey(w: Pick<Word, 'german' | 'translation'>): string {
   return `${w.german.trim().toLowerCase()}|${w.translation.trim().toLowerCase()}`;
 }
 
-/** Adds new words, skipping ones that already exist (same german + translation). Returns counts. */
-export function addWords(newWords: NewWord[]): { added: number; skipped: number } {
-  const existing = loadWords();
-  const existingKeys = new Set(existing.map(dedupeKey));
+/** Adds new words to a list, skipping ones that already exist there (same german + translation). */
+export function addWordsToList(listId: string, newWords: NewWord[]): { added: number; skipped: number } {
+  const lists = loadLists();
+  const listIdx = lists.findIndex((l) => l.id === listId);
+  if (listIdx === -1) return { added: 0, skipped: 0 };
+
+  const list = lists[listIdx];
+  const existingKeys = new Set(list.words.map(dedupeKey));
+  const updatedWords = [...list.words];
   let added = 0;
   let skipped = 0;
 
@@ -41,7 +114,7 @@ export function addWords(newWords: NewWord[]): { added: number; skipped: number 
       continue;
     }
     existingKeys.add(key);
-    existing.push({
+    updatedWords.push({
       id: generateId(),
       german: nw.german.trim(),
       article: nw.article,
@@ -55,37 +128,55 @@ export function addWords(newWords: NewWord[]): { added: number; skipped: number 
     added++;
   }
 
-  saveWords(existing);
+  lists[listIdx] = { ...list, words: updatedWords };
+  saveLists(lists);
   return { added, skipped };
 }
 
-export function updateWord(id: string, patch: Partial<Word>): void {
-  const words = loadWords();
-  const idx = words.findIndex((w) => w.id === id);
-  if (idx === -1) return;
-  words[idx] = { ...words[idx], ...patch };
-  saveWords(words);
+export function updateWordInList(listId: string, wordId: string, patch: Partial<Word>): void {
+  const lists = loadLists();
+  const listIdx = lists.findIndex((l) => l.id === listId);
+  if (listIdx === -1) return;
+  const words = lists[listIdx].words;
+  const wordIdx = words.findIndex((w) => w.id === wordId);
+  if (wordIdx === -1) return;
+  const updatedWords = [...words];
+  updatedWords[wordIdx] = { ...updatedWords[wordIdx], ...patch };
+  lists[listIdx] = { ...lists[listIdx], words: updatedWords };
+  saveLists(lists);
 }
 
-export function deleteWord(id: string): void {
-  const words = loadWords().filter((w) => w.id !== id);
-  saveWords(words);
+export function deleteWordFromList(listId: string, wordId: string): void {
+  const lists = loadLists();
+  const listIdx = lists.findIndex((l) => l.id === listId);
+  if (listIdx === -1) return;
+  lists[listIdx] = { ...lists[listIdx], words: lists[listIdx].words.filter((w) => w.id !== wordId) };
+  saveLists(lists);
 }
 
-export function clearAllWords(): void {
-  saveWords([]);
+export function clearListWords(listId: string): void {
+  const lists = loadLists();
+  const listIdx = lists.findIndex((l) => l.id === listId);
+  if (listIdx === -1) return;
+  lists[listIdx] = { ...lists[listIdx], words: [] };
+  saveLists(lists);
 }
 
-export function recordAnswer(id: string, wasCorrect: boolean): void {
-  const words = loadWords();
-  const idx = words.findIndex((w) => w.id === id);
-  if (idx === -1) return;
-  const w = words[idx];
-  words[idx] = {
+export function recordAnswerInList(listId: string, wordId: string, wasCorrect: boolean): void {
+  const lists = loadLists();
+  const listIdx = lists.findIndex((l) => l.id === listId);
+  if (listIdx === -1) return;
+  const words = lists[listIdx].words;
+  const wordIdx = words.findIndex((w) => w.id === wordId);
+  if (wordIdx === -1) return;
+  const w = words[wordIdx];
+  const updatedWords = [...words];
+  updatedWords[wordIdx] = {
     ...w,
     correct: w.correct + (wasCorrect ? 1 : 0),
     incorrect: w.incorrect + (wasCorrect ? 0 : 1),
     lastPracticed: new Date().toISOString(),
   };
-  saveWords(words);
+  lists[listIdx] = { ...lists[listIdx], words: updatedWords };
+  saveLists(lists);
 }

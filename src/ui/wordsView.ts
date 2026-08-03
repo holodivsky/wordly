@@ -1,7 +1,7 @@
-import { loadWords, updateWord, deleteWord, clearAllWords } from '../storage';
+import { getList, updateWordInList, deleteWordFromList, clearListWords } from '../storage';
 import { ALL_POS, accuracy, displayGerman, type PartOfSpeech } from '../types';
 
-export function renderWordsView(container: HTMLElement): void {
+export function renderWordsView(container: HTMLElement, listId: string): void {
   let search = '';
   let posFilter: PartOfSpeech | 'all' = 'all';
   let learnedFilter: 'all' | 'learned' | 'not-learned' = 'all';
@@ -9,7 +9,7 @@ export function renderWordsView(container: HTMLElement): void {
   render();
 
   function render(): void {
-    const words = loadWords();
+    const words = getList(listId)?.words ?? [];
 
     const filtered = words.filter((w) => {
       if (posFilter !== 'all' && w.partOfSpeech !== posFilter) return false;
@@ -30,7 +30,7 @@ export function renderWordsView(container: HTMLElement): void {
         </div>
         ${
           words.length === 0
-            ? `<div class="empty-state">Ще немає слів. Додай їх на вкладці "Імпорт".</div>`
+            ? `<div class="empty-state">Ще немає слів у цьому списку. Додай їх на вкладці "Імпорт".</div>`
             : `
           <div class="row" style="margin: 14px 0;">
             <input type="search" id="search-input" placeholder="Пошук..." value="${search}" />
@@ -93,8 +93,8 @@ export function renderWordsView(container: HTMLElement): void {
       render();
     });
     container.querySelector<HTMLButtonElement>('#clear-btn')?.addEventListener('click', () => {
-      if (confirm('Видалити всі слова та статистику? Цю дію не можна скасувати.')) {
-        clearAllWords();
+      if (confirm('Видалити всі слова та статистику в цьому списку? Цю дію не можна скасувати.')) {
+        clearListWords(listId);
         render();
       }
     });
@@ -102,10 +102,10 @@ export function renderWordsView(container: HTMLElement): void {
     container.querySelectorAll<HTMLTableRowElement>('tbody tr').forEach((row) => {
       const id = row.dataset.id!;
       row.querySelector<HTMLInputElement>('.learned-checkbox')!.addEventListener('change', (e) => {
-        updateWord(id, { learned: (e.target as HTMLInputElement).checked });
+        updateWordInList(listId, id, { learned: (e.target as HTMLInputElement).checked });
       });
       row.querySelector<HTMLButtonElement>('.delete-btn')!.addEventListener('click', () => {
-        deleteWord(id);
+        deleteWordFromList(listId, id);
         render();
       });
     });

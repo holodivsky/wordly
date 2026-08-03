@@ -1,6 +1,12 @@
-import type { Article, NewWord, PartOfSpeech } from './types';
+import type { Article, NewWord, PartOfSpeech, WordList } from './types';
 
 export interface ParseResult {
+  words: NewWord[];
+  errors: string[];
+}
+
+export interface JsonParseResult {
+  name: string | null;
   words: NewWord[];
   errors: string[];
 }
@@ -150,4 +156,68 @@ export function parseTable(raw: string): ParseResult {
   }
 
   return { words, errors };
+}
+
+/** Parses the JSON shape produced by `listToJsonString` (or a bare array of word objects). */
+export function parseJsonList(raw: string): JsonParseResult {
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return { name: null, words: [], errors: ['Не вдалося прочитати JSON — перевір формат файлу.'] };
+  }
+
+  let name: string | null = null;
+  let rawWords: unknown;
+
+  if (Array.isArray(data)) {
+    rawWords = data;
+  } else if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>;
+    if (typeof obj.name === 'string') name = obj.name;
+    rawWords = obj.words;
+  }
+
+  if (!Array.isArray(rawWords)) {
+    return { name, words: [], errors: ['У JSON немає масиву "words" зі словами.'] };
+  }
+
+  const words: NewWord[] = [];
+  const errors: string[] = [];
+
+  rawWords.forEach((item, i) => {
+    if (!item || typeof item !== 'object') {
+      errors.push(`Елемент ${i + 1}: некоректний формат.`);
+      return;
+    }
+    const obj = item as Record<string, unknown>;
+    const german = typeof obj.german === 'string' ? obj.german.trim() : '';
+    const translation = typeof obj.translation === 'string' ? obj.translation.trim() : '';
+    if (!german || !translation) {
+      errors.push(`Елемент ${i + 1}: пропущено — відсутнє слово або переклад.`);
+      return;
+    }
+    words.push({
+      german,
+      article: typeof obj.article === 'string' ? normalizeArticle(obj.article) : null,
+      translation,
+      partOfSpeech: typeof obj.partOfSpeech === 'string' ? normalizePos(obj.partOfSpeech) : 'Sonstiges',
+    });
+  });
+
+  return { name, words, errors };
+}
+
+/** Serializes a list's words (without personal learning stats) to a shareable JSON string. */
+export function listToJsonString(list: Pick<WordList, 'name' | 'words'>): string {
+  const exportShape = {
+    name: list.name,
+    words: list.words.map((w) => ({
+      german: w.german,
+      article: w.article,
+      translation: w.translation,
+      partOfSpeech: w.partOfSpeech,
+    })),
+  };
+  return JSON.stringify(exportShape, null, 2);
 }

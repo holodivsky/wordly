@@ -26,6 +26,12 @@ export interface Word {
 
 export type NewWord = Pick<Word, 'german' | 'article' | 'translation' | 'partOfSpeech'>;
 
+export interface WordList {
+  id: string;
+  name: string;
+  words: Word[];
+}
+
 export const ALL_POS: PartOfSpeech[] = [
   'Nomen',
   'Verb',

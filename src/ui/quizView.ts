@@ -1,28 +1,28 @@
-import { loadWords, recordAnswer, updateWord } from '../storage';
+import { getList, recordAnswerInList, updateWordInList } from '../storage';
 import { buildRound, type Question } from '../quiz';
-import { accuracy, displayGerman } from '../types';
+import { accuracy, displayGerman, type Word } from '../types';
 
 type Filter = 'all' | 'not-learned' | 'learned';
 
-function filterWords(filter: Filter) {
-  const words = loadWords();
+function filterWords(listId: string, filter: Filter): Word[] {
+  const words = getList(listId)?.words ?? [];
   if (filter === 'not-learned') return words.filter((w) => !w.learned);
   if (filter === 'learned') return words.filter((w) => w.learned);
   return words;
 }
 
-export function renderQuizView(container: HTMLElement): void {
+export function renderQuizView(container: HTMLElement, listId: string): void {
   let filter: Filter = 'not-learned';
   renderStart();
 
   function renderStart(): void {
-    const pool = filterWords(filter);
-    const totalWords = loadWords().length;
+    const pool = filterWords(listId, filter);
+    const totalWords = getList(listId)?.words.length ?? 0;
 
     if (totalWords === 0) {
       container.innerHTML = `
         <div class="card empty-state">
-          У тебе ще немає слів. Перейди на вкладку "Імпорт", щоб додати слова або завантажити приклад.
+          У цьому списку ще немає слів. Перейди на вкладку "Імпорт", щоб додати слова або завантажити приклад.
         </div>
       `;
       return;
@@ -97,7 +97,7 @@ export function renderQuizView(container: HTMLElement): void {
         btn.addEventListener('click', () => {
           const chosenIndex = Number(btn.dataset.index);
           const isCorrect = chosenIndex === q.correctIndex;
-          recordAnswer(q.word.id, isCorrect);
+          recordAnswerInList(listId, q.word.id, isCorrect);
 
           optionButtons.forEach((b, i) => {
             b.disabled = true;
@@ -128,7 +128,7 @@ export function renderQuizView(container: HTMLElement): void {
           container.querySelector<HTMLButtonElement>('#learned-toggle')!.addEventListener('click', (e) => {
             learned = !learned;
             q.word.learned = learned;
-            updateWord(q.word.id, { learned });
+            updateWordInList(listId, q.word.id, { learned });
             const btnEl = e.currentTarget as HTMLButtonElement;
             btnEl.textContent = learned ? '✓ Вивчено' : 'Позначити як вивчене';
             btnEl.classList.toggle('btn-learned-active', learned);
@@ -148,7 +148,7 @@ export function renderQuizView(container: HTMLElement): void {
 
     function showSummary(): void {
       const total = round.length;
-      const latestWords = loadWords();
+      const latestWords = getList(listId)?.words ?? [];
       container.innerHTML = `
         <div class="card">
           <h2>Підсумок раунду</h2>

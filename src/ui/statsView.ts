@@ -1,4 +1,4 @@
-import { loadWords } from '../storage';
+import { getList } from '../storage';
 import { accuracy, displayGerman } from '../types';
 
 function accuracyColor(acc: number): string {
@@ -7,8 +7,8 @@ function accuracyColor(acc: number): string {
   return 'var(--bad)';
 }
 
-export function renderStatsView(container: HTMLElement): void {
-  const words = loadWords();
+export function renderStatsView(container: HTMLElement, listId: string): void {
+  const words = getList(listId)?.words ?? [];
 
   if (words.length === 0) {
     container.innerHTML = `<div class="card empty-state">Ще немає даних. Додай слова і зіграй кілька раундів.</div>`;
