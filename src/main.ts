@@ -4,6 +4,13 @@ import { renderWordsView } from './ui/wordsView';
 import { renderStatsView } from './ui/statsView';
 import { loadLists, createList, renameList, deleteList, getActiveListId, setActiveListId, getList } from './storage';
 
+// Cross-device account sync (email-link sign-in + Firestore) is disabled for
+// now — Firebase's free-tier daily quota for email sign-in got exhausted
+// during testing, and delivery reliability needs a custom SMTP relay set up
+// first. The app is fully stable and usable locally without it. Flip this
+// back to true once that's sorted; nothing else needs to change.
+const ACCOUNT_SYNC_ENABLED = false;
+
 const HAS_SIGNED_IN_KEY = 'gvt.hasSignedInBefore.v1';
 
 // The firebase SDK is sizeable, so it's only loaded on demand: when the user
@@ -154,7 +161,7 @@ function render(): void {
         <h1>Німецькі слова</h1>
         <p class="subtitle">Тренажер лексики: імпортуй слова, грай, відстежуй прогрес.</p>
       </div>
-      ${renderAccountCorner()}
+      ${ACCOUNT_SYNC_ENABLED ? renderAccountCorner() : ''}
     </div>
 
     <div class="card" style="margin-bottom:20px;">
@@ -221,7 +228,7 @@ function render(): void {
     }
   });
 
-  app.querySelector<HTMLButtonElement>('#account-toggle')!.addEventListener('click', () => {
+  app.querySelector<HTMLButtonElement>('#account-toggle')?.addEventListener('click', () => {
     accountMenuOpen = !accountMenuOpen;
     render();
   });
@@ -302,4 +309,4 @@ document.addEventListener('click', (e) => {
 
 window.addEventListener('hashchange', render);
 render();
-initAccount();
+if (ACCOUNT_SYNC_ENABLED) initAccount();
