@@ -96,6 +96,35 @@ nav.tabs button.active {
   margin-bottom: 16px;
 }
 
+.account-corner {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.avatar-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+}
+
+.account-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 260px;
+  z-index: 20;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
 button {
   font-family: inherit;
 }

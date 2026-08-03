@@ -19,6 +19,7 @@ let accountEmail: string | null = null;
 let accountBusy = false;
 let accountMessage: { text: string; isError: boolean } | null = null;
 let accountListenerStarted = false;
+let accountMenuOpen = false;
 
 /** Idempotent: wires up the auth-state listener at most once per page load. */
 async function ensureAccountListenerStarted(): Promise<void> {
@@ -35,6 +36,20 @@ async function ensureAccountListenerStarted(): Promise<void> {
     }
     render();
   });
+}
+
+function getAccountInitials(email: string): string {
+  const local = email.split('@')[0] ?? email;
+  const parts = local.split(/[._-]+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return local.slice(0, 2).toUpperCase();
+}
+
+function colorForEmail(email: string): string {
+  let hash = 0;
+  for (let i = 0; i < email.length; i++) hash = email.charCodeAt(i) + ((hash << 5) - hash);
+  const hue = Math.abs(hash) % 360;
+  return `hsl(${hue}, 55%, 42%)`;
 }
 
 type Tab = 'play' | 'import' | 'words' | 'stats';
@@ -75,43 +90,61 @@ function navigate(tab: Tab): void {
   location.hash = tab;
 }
 
-function renderAccountPanel(): string {
-  const messageHtml = accountMessage
-    ? `<div class="msg ${accountMessage.isError ? 'msg-error' : 'msg-success'}" style="margin-top:10px;">${accountMessage.text}</div>`
-    : '';
+function renderAccountMessage(): string {
+  if (!accountMessage) return '';
+  return `<div class="msg ${accountMessage.isError ? 'msg-error' : 'msg-success'}" style="margin-top:10px;">${accountMessage.text}</div>`;
+}
 
+function renderAccountCorner(): string {
   if (accountEmail) {
+    const initials = getAccountInitials(accountEmail);
+    const color = colorForEmail(accountEmail);
     return `
-      <div class="card" style="margin-bottom:20px;">
-        <div class="row-between">
-          <div>
-            <strong>Акаунт</strong>
-            <div class="muted" style="font-size:13px; margin-top:2px;">
-              Увійшов як ${accountEmail} — списки й прогрес автоматично синхронізуються з усіма твоїми пристроями.
+      <div class="account-corner" id="account-corner">
+        <button class="avatar-circle" id="account-toggle" style="background:${color};" title="${accountEmail}">${initials}</button>
+        ${
+          accountMenuOpen
+            ? `
+          <div class="account-dropdown card">
+            <div class="muted" style="font-size:12px;">Увійшов як</div>
+            <div style="font-weight:600; margin-bottom:10px; word-break:break-all;">${accountEmail}</div>
+            <div class="muted" style="font-size:12px; margin-bottom:12px;">
+              Списки й прогрес автоматично синхронізуються з усіма твоїми пристроями.
             </div>
+            <button class="btn btn-danger" id="sign-out-btn" style="width:100%;" ${accountBusy ? 'disabled' : ''}>Вийти</button>
+            ${renderAccountMessage()}
           </div>
-          <button class="btn btn-danger" id="sign-out-btn" ${accountBusy ? 'disabled' : ''}>Вийти</button>
-        </div>
-        ${messageHtml}
+        `
+            : ''
+        }
       </div>
     `;
   }
 
   return `
-    <div class="card" style="margin-bottom:20px;">
-      <strong>Акаунт</strong>
-      <div class="muted" style="font-size:13px; margin: 2px 0 10px;">
-        Увійди своєю поштою, щоб автоматично синхронізувати списки й прогрес між усіма своїми пристроями (ноут, телефон).
-      </div>
-      <div class="row">
-        <input type="text" id="email-input" placeholder="твоя@пошта.com" style="min-width:220px;" />
-        <button class="btn btn-primary" id="send-link-btn" ${accountBusy ? 'disabled' : ''}>Надіслати посилання для входу</button>
-      </div>
-      <div class="row" style="margin-top:10px;">
-        <span class="muted" style="font-size:13px;">або</span>
-        <button class="btn" id="google-signin-btn" ${accountBusy ? 'disabled' : ''}>Увійти через Google</button>
-      </div>
-      ${messageHtml}
+    <div class="account-corner" id="account-corner">
+      <button class="btn btn-primary" id="account-toggle">Увійти</button>
+      ${
+        accountMenuOpen
+          ? `
+        <div class="account-dropdown card">
+          <strong style="font-size:14px;">Увійти</strong>
+          <div class="muted" style="font-size:12px; margin: 4px 0 10px;">
+            Синхронізуй списки й прогрес між своїми пристроями (ноут, телефон).
+          </div>
+          <input type="text" id="email-input" placeholder="твоя@пошта.com" style="width:100%; margin-bottom:8px; box-sizing:border-box;" />
+          <button class="btn btn-primary" id="send-link-btn" style="width:100%;" ${accountBusy ? 'disabled' : ''}>Надіслати посилання</button>
+          <div class="row" style="margin:12px 0; align-items:center;">
+            <div style="flex:1; height:1px; background:var(--border);"></div>
+            <span class="muted" style="font-size:12px;">або</span>
+            <div style="flex:1; height:1px; background:var(--border);"></div>
+          </div>
+          <button class="btn" id="google-signin-btn" style="width:100%;" ${accountBusy ? 'disabled' : ''}>Увійти через Google</button>
+          ${renderAccountMessage()}
+        </div>
+      `
+          : ''
+      }
     </div>
   `;
 }
@@ -123,8 +156,13 @@ function render(): void {
   const tab = currentTab(activeListId);
 
   app.innerHTML = `
-    <h1>Німецькі слова</h1>
-    <p class="subtitle">Тренажер лексики: імпортуй слова, грай, відстежуй прогрес.</p>
+    <div class="row-between" style="align-items:flex-start;">
+      <div>
+        <h1>Німецькі слова</h1>
+        <p class="subtitle">Тренажер лексики: імпортуй слова, грай, відстежуй прогрес.</p>
+      </div>
+      ${renderAccountCorner()}
+    </div>
 
     <div class="card" style="margin-bottom:20px;">
       <div class="row-between">
@@ -142,8 +180,6 @@ function render(): void {
       </div>
     </div>
 
-    ${renderAccountPanel()}
-
     <nav class="tabs">
       ${(Object.keys(TAB_LABELS) as Tab[])
         .map((t) => `<button data-tab="${t}" class="${t === tab ? 'active' : ''}">${TAB_LABELS[t]}</button>`)
@@ -151,6 +187,14 @@ function render(): void {
     </nav>
     <div id="view"></div>
   `;
+
+  // Every click inside the account corner re-renders the whole app (via the
+  // handlers below), which detaches the original event target from the
+  // document — a naive document-level "click outside" check would then see
+  // that detached target as "outside" and instantly close what was just
+  // opened. Stopping propagation here means the outside-click listener only
+  // ever sees clicks that are genuinely outside this corner.
+  app.querySelector<HTMLDivElement>('#account-corner')?.addEventListener('click', (e) => e.stopPropagation());
 
   app.querySelectorAll<HTMLButtonElement>('nav.tabs button').forEach((btn) => {
     btn.addEventListener('click', () => navigate(btn.dataset.tab as Tab));
@@ -182,6 +226,11 @@ function render(): void {
       deleteList(activeListId);
       render();
     }
+  });
+
+  app.querySelector<HTMLButtonElement>('#account-toggle')!.addEventListener('click', () => {
+    accountMenuOpen = !accountMenuOpen;
+    render();
   });
 
   app.querySelector<HTMLButtonElement>('#send-link-btn')?.addEventListener('click', async () => {
@@ -224,6 +273,7 @@ function render(): void {
   app.querySelector<HTMLButtonElement>('#sign-out-btn')?.addEventListener('click', async () => {
     if (!confirm('Вийти з акаунта? Дані залишаться на цьому пристрої, але перестануть оновлюватись з інших.')) return;
     accountBusy = true;
+    accountMenuOpen = false;
     render();
     const { signOutOfAccount } = await loadSyncModule();
     await signOutOfAccount();
@@ -277,6 +327,15 @@ async function initAccount(): Promise<void> {
     }
   }
 }
+
+document.addEventListener('click', (e) => {
+  if (!accountMenuOpen) return;
+  const corner = document.getElementById('account-corner');
+  if (corner && !corner.contains(e.target as Node)) {
+    accountMenuOpen = false;
+    render();
+  }
+});
 
 window.addEventListener('hashchange', render);
 render();
