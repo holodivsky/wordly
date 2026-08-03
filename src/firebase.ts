@@ -3,13 +3,12 @@ import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
 import {
   connectAuthEmulator,
   getAuth,
-  getRedirectResult,
   GoogleAuthProvider,
   isSignInWithEmailLink,
   onAuthStateChanged,
   sendSignInLinkToEmail,
   signInWithEmailLink,
-  signInWithRedirect,
+  signInWithPopup,
   signOut,
   type User,
 } from 'firebase/auth';
@@ -68,19 +67,16 @@ export async function completeEmailSignIn(promptForEmail: () => string | null): 
 }
 
 /**
- * Starts Google sign-in via a full-page redirect (not a popup — a popup
- * backgrounds the main tab, which can trip up Firebase Auth's IndexedDB
- * session persistence with a "Database is closing" error on some browsers).
- * Navigates away; the result is picked up by `completeGoogleRedirectIfPending`
- * once Google redirects back.
+ * Signs in with a Google account via a popup. (signInWithRedirect was tried
+ * instead, but it depends on a cross-origin relay through the Firebase
+ * project's authDomain to hand the result back to this app's own domain —
+ * which silently fails once third-party storage/cookies are blocked, as
+ * Chrome now does by default in Incognito and increasingly elsewhere.
+ * Popup avoids this: the popup and opener talk directly via postMessage,
+ * no third-party storage involved.)
  */
-export async function signInWithGoogleRedirect(): Promise<void> {
-  await signInWithRedirect(auth, new GoogleAuthProvider());
-}
-
-/** Call on boot to process a pending Google-redirect sign-in, if any. */
-export async function completeGoogleRedirectIfPending(): Promise<void> {
-  await getRedirectResult(auth);
+export async function signInWithGoogle(): Promise<void> {
+  await signInWithPopup(auth, new GoogleAuthProvider());
 }
 
 export function onAuthChange(callback: (user: User | null) => void): () => void {

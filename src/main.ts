@@ -5,7 +5,6 @@ import { renderStatsView } from './ui/statsView';
 import { loadLists, createList, renameList, deleteList, getActiveListId, setActiveListId, getList } from './storage';
 
 const HAS_SIGNED_IN_KEY = 'gvt.hasSignedInBefore.v1';
-const PENDING_GOOGLE_REDIRECT_KEY = 'gvt.pendingGoogleRedirect.v1';
 
 // The firebase SDK is sizeable, so it's only loaded on demand: when the user
 // actually interacts with the account panel, or on boot if this device was
@@ -257,13 +256,10 @@ function render(): void {
     accountMessage = null;
     render();
     try {
-      const [{ signInWithGoogleRedirect }] = await Promise.all([loadSyncModule(), ensureAccountListenerStarted()]);
-      // Full-page redirect: leaves this page now. Marked so that on return,
-      // boot knows to eagerly reconnect and process the result (see initAccount).
-      localStorage.setItem(PENDING_GOOGLE_REDIRECT_KEY, '1');
-      await signInWithGoogleRedirect();
+      const [{ signInWithGoogle }] = await Promise.all([loadSyncModule(), ensureAccountListenerStarted()]);
+      await signInWithGoogle();
+      // accountEmail/render() are updated by the auth-state-change listener once sign-in resolves.
     } catch (err) {
-      localStorage.removeItem(PENDING_GOOGLE_REDIRECT_KEY);
       accountMessage = { text: `Не вдалося увійти через Google: ${String(err)}`, isError: true };
       accountBusy = false;
       render();
@@ -302,10 +298,9 @@ function render(): void {
 async function initAccount(): Promise<void> {
   const looksLikeSignInLink = new URLSearchParams(location.search).has('oobCode');
   const hasSignedInBefore = localStorage.getItem(HAS_SIGNED_IN_KEY) === '1';
-  const hasPendingGoogleRedirect = localStorage.getItem(PENDING_GOOGLE_REDIRECT_KEY) === '1';
-  if (!looksLikeSignInLink && !hasSignedInBefore && !hasPendingGoogleRedirect) return;
+  if (!looksLikeSignInLink && !hasSignedInBefore) return;
 
-  const { completeSignInFromLink, completeGoogleRedirectIfPending } = await loadSyncModule();
+  const { completeSignInFromLink } = await loadSyncModule();
   await ensureAccountListenerStarted();
 
   if (looksLikeSignInLink) {
@@ -313,17 +308,6 @@ async function initAccount(): Promise<void> {
     if (result === 'no-email') {
       accountMessage = { text: 'Вхід скасовано — пошту не підтверджено.', isError: true };
       render();
-    }
-  }
-
-  if (hasPendingGoogleRedirect) {
-    try {
-      await completeGoogleRedirectIfPending();
-    } catch (err) {
-      accountMessage = { text: `Не вдалося увійти через Google: ${String(err)}`, isError: true };
-      render();
-    } finally {
-      localStorage.removeItem(PENDING_GOOGLE_REDIRECT_KEY);
     }
   }
 }

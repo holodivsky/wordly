@@ -3,7 +3,7 @@ import { db, onAuthChange, getCurrentUser, completeEmailSignIn, signOutUser } fr
 import { loadLists, saveLists, setSyncPushHandler } from './storage';
 import type { WordList } from './types';
 
-export { sendSignInLink, signInWithGoogleRedirect, completeGoogleRedirectIfPending } from './firebase';
+export { sendSignInLink, signInWithGoogle } from './firebase';
 
 const PUSH_DEBOUNCE_MS = 600;
 
