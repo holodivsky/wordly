@@ -1,0 +1,14 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Anyone who is signed in (including anonymously) and knows the sync
+    // code (the document ID) can read/write that group's data. The code
+    // itself — a long random string, never guessable, shared only by the
+    // people who should have access — is what protects the data, not the
+    // auth check. This is adequate for a personal vocabulary app; it is
+    // not meant to protect sensitive information.
+    match /syncGroups/{code} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

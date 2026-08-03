@@ -3,6 +3,13 @@ import { renderQuizView } from './ui/quizView';
 import { renderWordsView } from './ui/wordsView';
 import { renderStatsView } from './ui/statsView';
 import { loadLists, createList, renameList, deleteList, getActiveListId, setActiveListId, getList } from './storage';
+import { getSyncCode } from './syncCode';
+
+// The firebase SDK is sizeable, so it's only loaded on demand: when the user
+// actually enables/joins sync, or on boot if a sync code was already saved.
+function loadSyncModule() {
+  return import('./sync');
+}
 
 type Tab = 'play' | 'import' | 'words' | 'stats';
 
@@ -42,6 +49,40 @@ function navigate(tab: Tab): void {
   location.hash = tab;
 }
 
+function renderSyncPanel(): string {
+  const code = getSyncCode();
+  if (code) {
+    return `
+      <div class="card" style="margin-bottom:20px;">
+        <div class="row-between">
+          <div>
+            <strong>Синхронізація увімкнена</strong>
+            <div class="muted" style="font-size:13px; margin-top:2px;">
+              Код: <code>${code}</code> — введи його на іншому пристрої, щоб бачити ці ж списки й прогрес там.
+            </div>
+          </div>
+          <button class="btn btn-danger" id="disable-sync-btn">Відключити</button>
+        </div>
+      </div>
+    `;
+  }
+  return `
+    <div class="card" style="margin-bottom:20px;">
+      <div class="row-between">
+        <div>
+          <strong>Синхронізація між пристроями</strong>
+          <div class="muted" style="font-size:13px; margin-top:2px;">Вимкнена — дані лише в цьому браузері.</div>
+        </div>
+        <div class="row">
+          <button class="btn" id="enable-sync-btn">Увімкнути синхронізацію</button>
+          <button class="btn" id="join-sync-btn">Підключитись за кодом</button>
+        </div>
+      </div>
+      <div id="sync-status"></div>
+    </div>
+  `;
+}
+
 function render(): void {
   const activeListId = ensureActiveListId();
   const lists = loadLists();
@@ -67,6 +108,8 @@ function render(): void {
         </div>
       </div>
     </div>
+
+    ${renderSyncPanel()}
 
     <nav class="tabs">
       ${(Object.keys(TAB_LABELS) as Tab[])
@@ -108,6 +151,54 @@ function render(): void {
     }
   });
 
+  const enableSyncBtn = app.querySelector<HTMLButtonElement>('#enable-sync-btn');
+  enableSyncBtn?.addEventListener('click', async () => {
+    const statusEl = app.querySelector<HTMLDivElement>('#sync-status')!;
+    enableSyncBtn.disabled = true;
+    statusEl.innerHTML = `<p class="muted" style="margin-top:10px;">Вмикаємо синхронізацію…</p>`;
+    try {
+      const { enableSync } = await loadSyncModule();
+      await enableSync(render);
+      render();
+    } catch (err) {
+      statusEl.innerHTML = `<div class="msg msg-error" style="margin-top:10px;">Не вдалося увімкнути синхронізацію: ${String(err)}</div>`;
+      enableSyncBtn.disabled = false;
+    }
+  });
+
+  app.querySelector<HTMLButtonElement>('#join-sync-btn')?.addEventListener('click', async () => {
+    const code = prompt('Введи код синхронізації з іншого пристрою:');
+    if (!code || !code.trim()) return;
+    if (
+      !confirm(
+        'Приєднання замінить поточні локальні списки на цьому пристрої даними з хмари. Продовжити?'
+      )
+    ) {
+      return;
+    }
+    const statusEl = app.querySelector<HTMLDivElement>('#sync-status')!;
+    statusEl.innerHTML = `<p class="muted" style="margin-top:10px;">Підключаємось…</p>`;
+    try {
+      const { joinSync } = await loadSyncModule();
+      const result = await joinSync(code, render);
+      if (result === 'not-found') {
+        statusEl.innerHTML = `<div class="msg msg-error" style="margin-top:10px;">Код не знайдено. Перевір, чи правильно введений.</div>`;
+        return;
+      }
+      render();
+    } catch (err) {
+      statusEl.innerHTML = `<div class="msg msg-error" style="margin-top:10px;">Не вдалося підключитись: ${String(err)}</div>`;
+    }
+  });
+
+  app.querySelector<HTMLButtonElement>('#disable-sync-btn')?.addEventListener('click', async () => {
+    if (confirm('Відключити синхронізацію? Дані залишаться на цьому пристрої, але перестануть оновлюватись з інших.')) {
+      const { disableSync } = await loadSyncModule();
+      disableSync();
+      render();
+    }
+  });
+
   const view = app.querySelector<HTMLDivElement>('#view')!;
 
   switch (tab) {
@@ -127,4 +218,7 @@ function render(): void {
 }
 
 window.addEventListener('hashchange', render);
+if (getSyncCode()) {
+  loadSyncModule().then(({ resumeSyncIfEnabled }) => resumeSyncIfEnabled(render));
+}
 render();

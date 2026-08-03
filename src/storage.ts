@@ -4,6 +4,14 @@ const LISTS_KEY = 'gvt.lists.v1';
 const ACTIVE_LIST_KEY = 'gvt.activeListId.v1';
 const LEGACY_WORDS_KEY = 'gvt.words.v1';
 
+type SyncPushHandler = (lists: WordList[]) => void;
+let syncPushHandler: SyncPushHandler | null = null;
+
+/** Registers a callback that fires on every local save (unless `push: false` is passed). Used by sync.ts to mirror changes to the cloud. */
+export function setSyncPushHandler(handler: SyncPushHandler | null): void {
+  syncPushHandler = handler;
+}
+
 function generateId(): string {
   if ('randomUUID' in crypto) return crypto.randomUUID();
   return `id_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -41,8 +49,10 @@ export function loadLists(): WordList[] {
   return [];
 }
 
-export function saveLists(lists: WordList[]): void {
+/** Set `push: false` when applying data that just arrived from the cloud, to avoid pushing it right back. */
+export function saveLists(lists: WordList[], push = true): void {
   localStorage.setItem(LISTS_KEY, JSON.stringify(lists));
+  if (push && syncPushHandler) syncPushHandler(lists);
 }
 
 export function getList(listId: string): WordList | undefined {
