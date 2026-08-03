@@ -12,15 +12,26 @@ function docRefFor(code: string) {
   return doc(db, 'syncGroups', code);
 }
 
+function generateRevision(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 let unsubscribe: Unsubscribe | null = null;
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
+// The revision of the last write this device made. Lets us recognize the
+// server echoing our own write back (via onSnapshot) and ignore it, instead
+// of treating it as an incoming remote change and re-rendering the whole
+// app — which used to blow away things like an in-progress quiz round.
+let lastPushedRevision: string | null = null;
 
 function schedulePush(lists: WordList[]): void {
   const code = getSyncCode();
   if (!code) return;
   if (pushTimer) clearTimeout(pushTimer);
   pushTimer = setTimeout(() => {
-    ensureSignedIn().then(() => setDoc(docRefFor(code), { lists, updatedAt: serverTimestamp() }));
+    const revision = generateRevision();
+    lastPushedRevision = revision;
+    ensureSignedIn().then(() => setDoc(docRefFor(code), { lists, revision, updatedAt: serverTimestamp() }));
   }, PUSH_DEBOUNCE_MS);
 }
 
@@ -37,6 +48,8 @@ function startListening(code: string, onRemoteChange: () => void): void {
     if (!snap.exists()) return;
     if (snap.metadata.hasPendingWrites) return; // this is an echo of our own not-yet-acked write
     const data = snap.data();
+    const revision = data?.revision as string | undefined;
+    if (revision && revision === lastPushedRevision) return; // server confirming our own write — nothing changed for us
     const remoteLists = (data?.lists ?? []) as WordList[];
     saveLists(remoteLists, false);
     onRemoteChange();
@@ -47,7 +60,9 @@ function startListening(code: string, onRemoteChange: () => void): void {
 export async function enableSync(onRemoteChange: () => void): Promise<string> {
   await ensureSignedIn();
   const code = generateSyncCode();
-  await setDoc(docRefFor(code), { lists: loadLists(), updatedAt: serverTimestamp() });
+  const revision = generateRevision();
+  lastPushedRevision = revision;
+  await setDoc(docRefFor(code), { lists: loadLists(), revision, updatedAt: serverTimestamp() });
   setSyncCode(code);
   setSyncPushHandler(schedulePush);
   startListening(code, onRemoteChange);
@@ -61,6 +76,7 @@ export async function joinSync(rawCode: string, onRemoteChange: () => void): Pro
   const snap = await getDoc(docRefFor(code));
   if (!snap.exists()) return 'not-found';
   const data = snap.data();
+  lastPushedRevision = (data?.revision as string | undefined) ?? null;
   const remoteLists = (data?.lists ?? []) as WordList[];
   saveLists(remoteLists, false);
   setSyncCode(code);
@@ -73,6 +89,7 @@ export function disableSync(): void {
   stopListening();
   setSyncPushHandler(null);
   setSyncCode(null);
+  lastPushedRevision = null;
 }
 
 /** Call once on app boot: reconnects the live listener if sync was already enabled in a previous session. */
