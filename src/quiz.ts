@@ -24,7 +24,11 @@ export function buildRound(pool: Word[], size = 10): Question[] {
     const distractorCandidates = pool.filter(
       (w) => w.id !== word.id && w.translation.trim().toLowerCase() !== word.translation.trim().toLowerCase()
     );
-    const distractors = shuffle(distractorCandidates)
+    // Prefer distractors of the same part of speech (e.g. verbs mixed with
+    // verbs) — falls back to any other word when there aren't enough.
+    const samePos = distractorCandidates.filter((w) => w.partOfSpeech === word.partOfSpeech);
+    const otherPos = distractorCandidates.filter((w) => w.partOfSpeech !== word.partOfSpeech);
+    const distractors = [...shuffle(samePos), ...shuffle(otherPos)]
       .slice(0, maxOptions - 1)
       .map((w) => w.translation);
 
