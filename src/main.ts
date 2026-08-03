@@ -3,13 +3,20 @@ import { renderQuizView } from './ui/quizView';
 import { renderWordsView } from './ui/wordsView';
 import { renderStatsView } from './ui/statsView';
 import { loadLists, createList, renameList, deleteList, getActiveListId, setActiveListId, getList } from './storage';
-import { getSyncCode } from './syncCode';
+
+const HAS_SIGNED_IN_KEY = 'gvt.hasSignedInBefore.v1';
 
 // The firebase SDK is sizeable, so it's only loaded on demand: when the user
-// actually enables/joins sync, or on boot if a sync code was already saved.
+// actually interacts with the account panel, or on boot if this device was
+// previously signed in (to restore the session), or if the current URL is
+// an email sign-in link.
 function loadSyncModule() {
   return import('./sync');
 }
+
+let accountEmail: string | null = null;
+let accountBusy = false;
+let accountMessage: { text: string; isError: boolean } | null = null;
 
 type Tab = 'play' | 'import' | 'words' | 'stats';
 
@@ -49,36 +56,39 @@ function navigate(tab: Tab): void {
   location.hash = tab;
 }
 
-function renderSyncPanel(): string {
-  const code = getSyncCode();
-  if (code) {
+function renderAccountPanel(): string {
+  const messageHtml = accountMessage
+    ? `<div class="msg ${accountMessage.isError ? 'msg-error' : 'msg-success'}" style="margin-top:10px;">${accountMessage.text}</div>`
+    : '';
+
+  if (accountEmail) {
     return `
       <div class="card" style="margin-bottom:20px;">
         <div class="row-between">
           <div>
-            <strong>Синхронізація увімкнена</strong>
+            <strong>Акаунт</strong>
             <div class="muted" style="font-size:13px; margin-top:2px;">
-              Код: <code>${code}</code> — введи його на іншому пристрої, щоб бачити ці ж списки й прогрес там.
+              Увійшов як ${accountEmail} — списки й прогрес автоматично синхронізуються з усіма твоїми пристроями.
             </div>
           </div>
-          <button class="btn btn-danger" id="disable-sync-btn">Відключити</button>
+          <button class="btn btn-danger" id="sign-out-btn" ${accountBusy ? 'disabled' : ''}>Вийти</button>
         </div>
+        ${messageHtml}
       </div>
     `;
   }
+
   return `
     <div class="card" style="margin-bottom:20px;">
-      <div class="row-between">
-        <div>
-          <strong>Синхронізація між пристроями</strong>
-          <div class="muted" style="font-size:13px; margin-top:2px;">Вимкнена — дані лише в цьому браузері.</div>
-        </div>
-        <div class="row">
-          <button class="btn" id="enable-sync-btn">Увімкнути синхронізацію</button>
-          <button class="btn" id="join-sync-btn">Підключитись за кодом</button>
-        </div>
+      <strong>Акаунт</strong>
+      <div class="muted" style="font-size:13px; margin: 2px 0 10px;">
+        Увійди своєю поштою, щоб автоматично синхронізувати списки й прогрес між усіма своїми пристроями (ноут, телефон).
       </div>
-      <div id="sync-status"></div>
+      <div class="row">
+        <input type="text" id="email-input" placeholder="твоя@пошта.com" style="min-width:220px;" />
+        <button class="btn btn-primary" id="send-link-btn" ${accountBusy ? 'disabled' : ''}>Надіслати посилання для входу</button>
+      </div>
+      ${messageHtml}
     </div>
   `;
 }
@@ -109,7 +119,7 @@ function render(): void {
       </div>
     </div>
 
-    ${renderSyncPanel()}
+    ${renderAccountPanel()}
 
     <nav class="tabs">
       ${(Object.keys(TAB_LABELS) as Tab[])
@@ -151,52 +161,33 @@ function render(): void {
     }
   });
 
-  const enableSyncBtn = app.querySelector<HTMLButtonElement>('#enable-sync-btn');
-  enableSyncBtn?.addEventListener('click', async () => {
-    const statusEl = app.querySelector<HTMLDivElement>('#sync-status')!;
-    enableSyncBtn.disabled = true;
-    statusEl.innerHTML = `<p class="muted" style="margin-top:10px;">Вмикаємо синхронізацію…</p>`;
+  app.querySelector<HTMLButtonElement>('#send-link-btn')?.addEventListener('click', async () => {
+    const emailInput = app.querySelector<HTMLInputElement>('#email-input')!;
+    const email = emailInput.value.trim();
+    if (!email) return;
+    accountBusy = true;
+    accountMessage = null;
+    render();
     try {
-      const { enableSync } = await loadSyncModule();
-      await enableSync(render);
-      render();
+      const { sendSignInLink } = await loadSyncModule();
+      await sendSignInLink(email);
+      accountMessage = { text: `Перевір пошту ${email} і натисни посилання для входу.`, isError: false };
     } catch (err) {
-      statusEl.innerHTML = `<div class="msg msg-error" style="margin-top:10px;">Не вдалося увімкнути синхронізацію: ${String(err)}</div>`;
-      enableSyncBtn.disabled = false;
+      accountMessage = { text: `Не вдалося надіслати посилання: ${String(err)}`, isError: true };
+    } finally {
+      accountBusy = false;
+      render();
     }
   });
 
-  app.querySelector<HTMLButtonElement>('#join-sync-btn')?.addEventListener('click', async () => {
-    const code = prompt('Введи код синхронізації з іншого пристрою:');
-    if (!code || !code.trim()) return;
-    if (
-      !confirm(
-        'Приєднання замінить поточні локальні списки на цьому пристрої даними з хмари. Продовжити?'
-      )
-    ) {
-      return;
-    }
-    const statusEl = app.querySelector<HTMLDivElement>('#sync-status')!;
-    statusEl.innerHTML = `<p class="muted" style="margin-top:10px;">Підключаємось…</p>`;
-    try {
-      const { joinSync } = await loadSyncModule();
-      const result = await joinSync(code, render);
-      if (result === 'not-found') {
-        statusEl.innerHTML = `<div class="msg msg-error" style="margin-top:10px;">Код не знайдено. Перевір, чи правильно введений.</div>`;
-        return;
-      }
-      render();
-    } catch (err) {
-      statusEl.innerHTML = `<div class="msg msg-error" style="margin-top:10px;">Не вдалося підключитись: ${String(err)}</div>`;
-    }
-  });
-
-  app.querySelector<HTMLButtonElement>('#disable-sync-btn')?.addEventListener('click', async () => {
-    if (confirm('Відключити синхронізацію? Дані залишаться на цьому пристрої, але перестануть оновлюватись з інших.')) {
-      const { disableSync } = await loadSyncModule();
-      disableSync();
-      render();
-    }
+  app.querySelector<HTMLButtonElement>('#sign-out-btn')?.addEventListener('click', async () => {
+    if (!confirm('Вийти з акаунта? Дані залишаться на цьому пристрої, але перестануть оновлюватись з інших.')) return;
+    accountBusy = true;
+    render();
+    const { signOutOfAccount } = await loadSyncModule();
+    await signOutOfAccount();
+    accountBusy = false;
+    // render() fires again via the auth-state-change callback set up in initAccountSync
   });
 
   const view = app.querySelector<HTMLDivElement>('#view')!;
@@ -217,8 +208,33 @@ function render(): void {
   }
 }
 
-window.addEventListener('hashchange', render);
-if (getSyncCode()) {
-  loadSyncModule().then(({ resumeSyncIfEnabled }) => resumeSyncIfEnabled(render));
+async function initAccount(): Promise<void> {
+  const looksLikeSignInLink = new URLSearchParams(location.search).has('oobCode');
+  const hasSignedInBefore = localStorage.getItem(HAS_SIGNED_IN_KEY) === '1';
+  if (!looksLikeSignInLink && !hasSignedInBefore) return;
+
+  const { completeSignInFromLink, initAccountSync } = await loadSyncModule();
+
+  if (looksLikeSignInLink) {
+    const result = await completeSignInFromLink(() => prompt('Підтверди свою пошту для завершення входу:'));
+    if (result === 'no-email') {
+      accountMessage = { text: 'Вхід скасовано — пошту не підтверджено.', isError: true };
+      render();
+    }
+  }
+
+  initAccountSync((status) => {
+    accountEmail = status.email;
+    if (status.email) {
+      localStorage.setItem(HAS_SIGNED_IN_KEY, '1');
+      accountMessage = null;
+    } else {
+      localStorage.removeItem(HAS_SIGNED_IN_KEY);
+    }
+    render();
+  });
 }
+
+window.addEventListener('hashchange', render);
 render();
+initAccount();
