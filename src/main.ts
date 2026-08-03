@@ -17,6 +17,24 @@ function loadSyncModule() {
 let accountEmail: string | null = null;
 let accountBusy = false;
 let accountMessage: { text: string; isError: boolean } | null = null;
+let accountListenerStarted = false;
+
+/** Idempotent: wires up the auth-state listener at most once per page load. */
+async function ensureAccountListenerStarted(): Promise<void> {
+  if (accountListenerStarted) return;
+  accountListenerStarted = true;
+  const { initAccountSync } = await loadSyncModule();
+  initAccountSync((status) => {
+    accountEmail = status.email;
+    if (status.email) {
+      localStorage.setItem(HAS_SIGNED_IN_KEY, '1');
+      accountMessage = null;
+    } else {
+      localStorage.removeItem(HAS_SIGNED_IN_KEY);
+    }
+    render();
+  });
+}
 
 type Tab = 'play' | 'import' | 'words' | 'stats';
 
@@ -87,6 +105,10 @@ function renderAccountPanel(): string {
       <div class="row">
         <input type="text" id="email-input" placeholder="твоя@пошта.com" style="min-width:220px;" />
         <button class="btn btn-primary" id="send-link-btn" ${accountBusy ? 'disabled' : ''}>Надіслати посилання для входу</button>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <span class="muted" style="font-size:13px;">або</span>
+        <button class="btn" id="google-signin-btn" ${accountBusy ? 'disabled' : ''}>Увійти через Google</button>
       </div>
       ${messageHtml}
     </div>
@@ -169,12 +191,27 @@ function render(): void {
     accountMessage = null;
     render();
     try {
-      const { sendSignInLink } = await loadSyncModule();
+      const [{ sendSignInLink }] = await Promise.all([loadSyncModule(), ensureAccountListenerStarted()]);
       await sendSignInLink(email);
       accountMessage = { text: `Перевір пошту ${email} і натисни посилання для входу.`, isError: false };
     } catch (err) {
       accountMessage = { text: `Не вдалося надіслати посилання: ${String(err)}`, isError: true };
     } finally {
+      accountBusy = false;
+      render();
+    }
+  });
+
+  app.querySelector<HTMLButtonElement>('#google-signin-btn')?.addEventListener('click', async () => {
+    accountBusy = true;
+    accountMessage = null;
+    render();
+    try {
+      const [{ signInWithGoogle }] = await Promise.all([loadSyncModule(), ensureAccountListenerStarted()]);
+      await signInWithGoogle();
+      // accountEmail/render() are updated by the auth-state-change listener once sign-in resolves.
+    } catch (err) {
+      accountMessage = { text: `Не вдалося увійти через Google: ${String(err)}`, isError: true };
       accountBusy = false;
       render();
     }
@@ -213,7 +250,8 @@ async function initAccount(): Promise<void> {
   const hasSignedInBefore = localStorage.getItem(HAS_SIGNED_IN_KEY) === '1';
   if (!looksLikeSignInLink && !hasSignedInBefore) return;
 
-  const { completeSignInFromLink, initAccountSync } = await loadSyncModule();
+  const { completeSignInFromLink } = await loadSyncModule();
+  await ensureAccountListenerStarted();
 
   if (looksLikeSignInLink) {
     const result = await completeSignInFromLink(() => prompt('Підтверди свою пошту для завершення входу:'));
@@ -222,17 +260,6 @@ async function initAccount(): Promise<void> {
       render();
     }
   }
-
-  initAccountSync((status) => {
-    accountEmail = status.email;
-    if (status.email) {
-      localStorage.setItem(HAS_SIGNED_IN_KEY, '1');
-      accountMessage = null;
-    } else {
-      localStorage.removeItem(HAS_SIGNED_IN_KEY);
-    }
-    render();
-  });
 }
 
 window.addEventListener('hashchange', render);

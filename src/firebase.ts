@@ -3,10 +3,12 @@ import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
 import {
   connectAuthEmulator,
   getAuth,
+  GoogleAuthProvider,
   isSignInWithEmailLink,
   onAuthStateChanged,
   sendSignInLinkToEmail,
   signInWithEmailLink,
+  signInWithPopup,
   signOut,
   type User,
 } from 'firebase/auth';
@@ -62,6 +64,11 @@ export async function completeEmailSignIn(promptForEmail: () => string | null): 
   cleanUrl.search = '';
   history.replaceState(null, '', cleanUrl.toString());
   return 'ok';
+}
+
+/** Signs in with a Google account via a popup. */
+export async function signInWithGoogle(): Promise<void> {
+  await signInWithPopup(auth, new GoogleAuthProvider());
 }
 
 export function onAuthChange(callback: (user: User | null) => void): () => void {
