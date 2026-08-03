@@ -3,7 +3,7 @@ import { db, onAuthChange, getCurrentUser, completeEmailSignIn, signOutUser } fr
 import { loadLists, saveLists, setSyncPushHandler } from './storage';
 import type { WordList } from './types';
 
-export { sendSignInLink, signInWithGoogle } from './firebase';
+export { sendSignInLink } from './firebase';
 
 const PUSH_DEBOUNCE_MS = 600;
 
@@ -13,6 +13,44 @@ function docRefFor(uid: string) {
 
 function generateRevision(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * Resolves once the tab is visible again. Right after a Google sign-in popup
+ * closes, the opener tab can briefly still report `document.hidden`, and
+ * Firestore's own persistence layer refuses operations while hidden (throwing
+ * "Database is closing/hidden") — so we wait it out before touching Firestore.
+ */
+function waitForVisible(timeoutMs = 3000): Promise<void> {
+  if (document.visibilityState === 'visible') return Promise.resolve();
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      document.removeEventListener('visibilitychange', onChange);
+      resolve();
+    }, timeoutMs);
+    function onChange() {
+      if (document.visibilityState === 'visible') {
+        document.removeEventListener('visibilitychange', onChange);
+        clearTimeout(timer);
+        resolve();
+      }
+    }
+    document.addEventListener('visibilitychange', onChange);
+  });
+}
+
+/** Retries a flaky Firestore call a couple of times with a short delay — covers the same visibility race if it slips past `waitForVisible`. */
+async function withRetry<T>(fn: () => Promise<T>, attempts = 3, delayMs = 400): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  throw lastErr;
 }
 
 let unsubscribe: Unsubscribe | null = null;
@@ -31,7 +69,10 @@ function schedulePush(lists: WordList[]): void {
   pushTimer = setTimeout(() => {
     const revision = generateRevision();
     lastPushedRevision = revision;
-    setDoc(docRefFor(uid), { lists, revision, updatedAt: serverTimestamp() });
+    withRetry(() => setDoc(docRefFor(uid), { lists, revision, updatedAt: serverTimestamp() })).catch(() => {
+      // Best-effort background sync — if it still fails after retries, the
+      // next local edit's push will carry this same data forward anyway.
+    });
   }, PUSH_DEBOUNCE_MS);
 }
 
@@ -58,8 +99,9 @@ function startListening(uid: string, onRemoteChange: () => void): void {
 
 /** Connects this device to the signed-in user's cloud data and starts live sync. */
 async function connectAccountSync(uid: string, onRemoteChange: () => void): Promise<void> {
+  await waitForVisible();
   currentUid = uid;
-  const snap = await getDoc(docRefFor(uid));
+  const snap = await withRetry(() => getDoc(docRefFor(uid)));
   if (snap.exists()) {
     const data = snap.data();
     lastPushedRevision = (data?.revision as string | undefined) ?? null;
@@ -70,7 +112,7 @@ async function connectAccountSync(uid: string, onRemoteChange: () => void): Prom
     // whatever is on this device right now.
     const revision = generateRevision();
     lastPushedRevision = revision;
-    await setDoc(docRefFor(uid), { lists: loadLists(), revision, updatedAt: serverTimestamp() });
+    await withRetry(() => setDoc(docRefFor(uid), { lists: loadLists(), revision, updatedAt: serverTimestamp() }));
   }
   setSyncPushHandler(schedulePush);
   startListening(uid, onRemoteChange);

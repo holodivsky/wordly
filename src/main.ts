@@ -133,12 +133,6 @@ function renderAccountCorner(): string {
           </div>
           <input type="text" id="email-input" placeholder="твоя@пошта.com" style="width:100%; margin-bottom:8px; box-sizing:border-box;" />
           <button class="btn btn-primary" id="send-link-btn" style="width:100%;" ${accountBusy ? 'disabled' : ''}>Надіслати посилання</button>
-          <div class="row" style="margin:12px 0; align-items:center;">
-            <div style="flex:1; height:1px; background:var(--border);"></div>
-            <span class="muted" style="font-size:12px;">або</span>
-            <div style="flex:1; height:1px; background:var(--border);"></div>
-          </div>
-          <button class="btn" id="google-signin-btn" style="width:100%;" ${accountBusy ? 'disabled' : ''}>Увійти через Google</button>
           ${renderAccountMessage()}
         </div>
       `
@@ -246,21 +240,6 @@ function render(): void {
     } catch (err) {
       accountMessage = { text: `Не вдалося надіслати посилання: ${String(err)}`, isError: true };
     } finally {
-      accountBusy = false;
-      render();
-    }
-  });
-
-  app.querySelector<HTMLButtonElement>('#google-signin-btn')?.addEventListener('click', async () => {
-    accountBusy = true;
-    accountMessage = null;
-    render();
-    try {
-      const [{ signInWithGoogle }] = await Promise.all([loadSyncModule(), ensureAccountListenerStarted()]);
-      await signInWithGoogle();
-      // accountEmail/render() are updated by the auth-state-change listener once sign-in resolves.
-    } catch (err) {
-      accountMessage = { text: `Не вдалося увійти через Google: ${String(err)}`, isError: true };
       accountBusy = false;
       render();
     }
