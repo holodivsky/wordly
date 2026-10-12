@@ -3,11 +3,13 @@ import type { NewWord, Word, WordList } from './types';
 const LISTS_KEY = 'gvt.lists.v1';
 const ACTIVE_LIST_KEY = 'gvt.activeListId.v1';
 const LEGACY_WORDS_KEY = 'gvt.words.v1';
+const OWNER_KEY = 'gvt.ownerUid.v1';
+const DEFAULT_LIST_NAME = 'Мої слова';
 
 type SyncPushHandler = (lists: WordList[]) => void;
 let syncPushHandler: SyncPushHandler | null = null;
 
-/** Registers a callback that fires on every local save (unless `push: false` is passed). Used by sync.ts to mirror changes to the cloud. */
+/** Registers a callback that fires on every local save (unless `push: false` is passed). Used by account.ts to mirror changes to the cloud. */
 export function setSyncPushHandler(handler: SyncPushHandler | null): void {
   syncPushHandler = handler;
 }
@@ -25,7 +27,7 @@ function migrateLegacyWords(): WordList[] | null {
   try {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed) || parsed.length === 0) return null;
-    return [{ id: generateId(), name: 'Мої слова', words: parsed as Word[] }];
+    return [{ id: generateId(), name: DEFAULT_LIST_NAME, words: parsed as Word[] }];
   } catch {
     return null;
   }
@@ -103,6 +105,46 @@ export function deleteList(listId: string): void {
 
 function dedupeKey(w: Pick<Word, 'german' | 'translation'>): string {
   return `${w.german.trim().toLowerCase()}|${w.translation.trim().toLowerCase()}`;
+}
+
+/** Returns `base` plus every word from `extra` that isn't already in it (same german + translation). */
+export function mergeWords(base: Word[], extra: Word[]): Word[] {
+  const keys = new Set(base.map(dedupeKey));
+  const merged = [...base];
+  for (const w of extra) {
+    const key = dedupeKey(w);
+    if (keys.has(key)) continue;
+    keys.add(key);
+    merged.push(w);
+  }
+  return merged;
+}
+
+/** Every word stored on this device as one array. Earlier versions of the app allowed several lists; an account has exactly one. */
+export function loadAllWords(): Word[] {
+  return loadLists().reduce<Word[]>((all, l) => mergeWords(all, l.words), []);
+}
+
+/** Replaces everything stored on this device with a single list of `words`, without pushing it back to the cloud. */
+export function replaceAllWords(words: Word[]): void {
+  const id = loadLists()[0]?.id ?? generateId();
+  saveLists([{ id, name: DEFAULT_LIST_NAME, words }], false);
+  setActiveListId(id);
+}
+
+/** The account whose words are cached on this device, or null if they were added before anyone signed in. */
+export function getOwnerUid(): string | null {
+  return localStorage.getItem(OWNER_KEY);
+}
+
+export function setOwnerUid(uid: string): void {
+  localStorage.setItem(OWNER_KEY, uid);
+}
+
+export function clearLocalData(): void {
+  localStorage.removeItem(LISTS_KEY);
+  localStorage.removeItem(ACTIVE_LIST_KEY);
+  localStorage.removeItem(OWNER_KEY);
 }
 
 /** Adds new words to a list, skipping ones that already exist there (same german + translation). */

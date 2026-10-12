@@ -53,7 +53,7 @@ export function renderStatsView(container: HTMLElement, listId: string): void {
       ${
         withAttempts.length === 0
           ? `<p class="muted">Ще немає спроб — зіграй раунд, щоб побачити статистику по кожному слову.</p>`
-          : `<table>
+          : `<div class="table-scroll"><table>
               <thead>
                 <tr>
                   <th>Слово</th>
@@ -84,7 +84,7 @@ export function renderStatsView(container: HTMLElement, listId: string): void {
                   })
                   .join('')}
               </tbody>
-            </table>`
+            </table></div>`
       }
       ${
         withoutAttempts.length > 0

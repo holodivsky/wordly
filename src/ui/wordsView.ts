@@ -44,7 +44,7 @@ export function renderWordsView(container: HTMLElement, listId: string): void {
               <option value="learned" ${learnedFilter === 'learned' ? 'selected' : ''}>Вивчені</option>
             </select>
           </div>
-          <table>
+          <div class="table-scroll"><table>
             <thead>
               <tr>
                 <th>Слово</th>
@@ -71,7 +71,7 @@ export function renderWordsView(container: HTMLElement, listId: string): void {
                 })
                 .join('')}
             </tbody>
-          </table>
+          </table></div>
           ${filtered.length === 0 ? `<p class="muted" style="margin-top:12px;">Нічого не знайдено за цим фільтром.</p>` : ''}
           `
         }

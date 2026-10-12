@@ -35,6 +35,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -45,7 +49,13 @@ body {
 #app {
   max-width: 760px;
   margin: 0 auto;
-  padding: 24px 16px 64px;
+  padding: 16px 12px 48px;
+}
+
+@media (min-width: 600px) {
+  #app {
+    padding: 24px 16px 64px;
+  }
 }
 
 h1 {
@@ -80,6 +90,11 @@ nav.tabs button {
   cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+nav.tabs button:hover {
+  color: var(--text);
 }
 
 nav.tabs button.active {
@@ -92,8 +107,15 @@ nav.tabs button.active {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 20px;
+  padding: 16px;
   margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+@media (min-width: 600px) {
+  .card {
+    padding: 20px;
+  }
 }
 
 .account-corner {
@@ -132,7 +154,9 @@ button {
 .btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  min-height: 44px;
   padding: 9px 16px;
   border-radius: 8px;
   border: 1px solid var(--border);
@@ -140,10 +164,22 @@ button {
   color: var(--text);
   font-size: 14px;
   cursor: pointer;
+  transition: transform 0.08s ease, background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .btn:hover {
   border-color: var(--accent);
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.btn:focus-visible,
+nav.tabs button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .btn-primary {
@@ -166,6 +202,195 @@ button {
   cursor: not-allowed;
 }
 
+.btn-add:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Brief confirmation on the add button after a word is saved; outlasts its disabled dimming. */
+.btn-add.btn-added {
+  background: var(--good);
+  border-color: var(--good);
+  color: var(--surface);
+  opacity: 1;
+  animation: pop 0.3s ease;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  padding: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.btn-link:hover {
+  color: var(--bad);
+}
+
+/* Phones first: the field takes the full width with both actions sharing the row under it. */
+.translate-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.translate-field {
+  position: relative;
+}
+
+.translate-field input {
+  width: 100%;
+  padding-right: 36px;
+}
+
+.field-spinner {
+  position: absolute;
+  right: 12px;
+  top: 15px;
+  color: var(--muted);
+}
+
+.translate-field.is-busy .field-spinner {
+  display: block;
+}
+
+.suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  margin: 4px 0 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  animation: reveal 0.12s ease;
+}
+
+.suggestions li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.suggestions li span {
+  font-size: 12px;
+}
+
+.suggestions li:hover,
+.suggestions li.active {
+  background: var(--bg);
+}
+
+#translate-details {
+  transition: opacity 0.15s ease;
+}
+
+#translate-details.is-stale {
+  opacity: 0.45;
+}
+
+.translate-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.translate-actions .btn {
+  flex: 1;
+}
+
+.word-row {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  gap: 10px;
+}
+
+.word-row > :nth-child(n + 3) {
+  grid-column: 1 / -1;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+@media (min-width: 600px) {
+  .translate-form {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .translate-field {
+    flex: 1;
+  }
+
+  .translate-actions .btn {
+    flex: none;
+  }
+
+  .word-row {
+    grid-template-columns: 84px 1fr 1.4fr 150px;
+  }
+
+  .word-row > :nth-child(n + 3) {
+    grid-column: auto;
+  }
+}
+
+.spinner {
+  display: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.btn.is-loading .spinner {
+  display: inline-block;
+}
+
+.reveal {
+  animation: reveal 0.25s ease;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pop {
+  50% {
+    transform: scale(1.18);
+  }
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 textarea {
   width: 100%;
   min-height: 140px;
@@ -181,13 +406,27 @@ textarea {
 
 select,
 input[type='text'],
+input[type='password'],
 input[type='search'] {
-  padding: 8px 10px;
+  min-height: 44px;
+  min-width: 0;
+  padding: 8px 12px;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  font-size: 14px;
+  /* 16px keeps iOS Safari from zooming the page when a field is focused. */
+  font-size: 16px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+select:focus,
+input[type='text']:focus,
+input[type='password']:focus,
+input[type='search']:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
 .row {

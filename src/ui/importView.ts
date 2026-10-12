@@ -25,13 +25,10 @@ function slugify(name: string): string {
 }
 
 export function renderImportView(container: HTMLElement, listId: string, onImported: () => void): void {
-  const list = getList(listId);
-  const listName = list?.name ?? '';
-
   container.innerHTML = `
     <div class="card">
       <h2>Імпорт слів</h2>
-      <p class="subtitle">Слова додаються у поточний список: <strong>${listName}</strong> (обрати інший список можна вгорі сторінки). Можна імпортувати повторно — нові слова додадуться, дублікати пропустяться.</p>
+      <p class="subtitle">Можна імпортувати повторно — нові слова додадуться, дублікати пропустяться.</p>
       <div class="row" style="margin-bottom: 10px;">
         <a class="btn" id="template-link" href="./shablon-sliv.csv" download="shablon-sliv.csv">Скачати шаблон (CSV)</a>
         <input type="file" id="file-input" accept=".csv,.tsv,.txt,.json" />
@@ -42,7 +39,7 @@ Tisch	der	стіл	Nomen
 gehen		йти	Verb"></textarea>
       <div class="row" style="margin-top: 12px;">
         <button class="btn btn-primary" id="import-btn" type="button">Імпортувати</button>
-        <button class="btn" id="export-btn" type="button">Скачати поточний список як JSON</button>
+        <button class="btn" id="export-btn" type="button">Скачати мої слова як JSON</button>
       </div>
       <div id="import-result"></div>
       <div class="help-box">
@@ -54,7 +51,7 @@ gehen		йти	Verb"></textarea>
         <code>german,article,translation,partOfSpeech</code><br/>
         <code>Tisch,der,стіл,Nomen</code><br/>
         <code>gehen,,йти,Verb</code><br/><br/>
-        <strong>Поділитись списком з кимось:</strong> натисни "Скачати поточний список як JSON" і передай файл — інша людина створює у себе новий список (кнопка вгорі сторінки) і завантажує цей .json файлом сюди ж. Прогрес вивчення в кожного залишається окремим.
+        <strong>Поділитись словами з кимось:</strong> натисни "Скачати мої слова як JSON" і передай файл — інша людина завантажує цей .json у себе на цій же вкладці. Прогрес вивчення в кожного залишається окремим.
       </div>
     </div>
   `;
@@ -85,7 +82,7 @@ gehen		йти	Verb"></textarea>
   exportBtn.addEventListener('click', () => {
     const current = getList(listId);
     if (!current || current.words.length === 0) {
-      showResult('У поточному списку ще немає слів для експорту.', true);
+      showResult('У тебе ще немає слів для експорту.', true);
       return;
     }
     downloadFile(`${slugify(current.name)}.json`, listToJsonString(current), 'application/json');

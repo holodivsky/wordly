@@ -1,26 +1,32 @@
+import type { User } from 'firebase/auth';
 import { renderImportView } from './ui/importView';
 import { renderQuizView } from './ui/quizView';
 import { renderWordsView } from './ui/wordsView';
 import { renderStatsView } from './ui/statsView';
-import { loadLists, createList, renameList, deleteList, getActiveListId, setActiveListId, getList } from './storage';
-import { getSyncCode } from './syncCode';
+import { renderLoginView } from './ui/loginView';
+import { renderTranslateView } from './ui/translateView';
+import { loadLists, createList, getActiveListId, getList } from './storage';
+import { displayLogin, signOutAccount, startAccountSync, watchAuth } from './account';
+import { forgetApiKey, loadApiKey } from './apiKey';
 
-// The firebase SDK is sizeable, so it's only loaded on demand: when the user
-// actually enables/joins sync, or on boot if a sync code was already saved.
-function loadSyncModule() {
-  return import('./sync');
-}
-
-type Tab = 'play' | 'import' | 'words' | 'stats';
+type Tab = 'translate' | 'game' | 'words';
+type WordsSection = 'list' | 'import' | 'stats';
 
 const TAB_LABELS: Record<Tab, string> = {
-  play: 'Гра',
+  translate: 'Translate',
+  game: 'Game',
+  words: 'Words',
+};
+
+const SECTION_LABELS: Record<WordsSection, string> = {
+  list: 'Список',
   import: 'Імпорт',
-  words: 'Слова',
   stats: 'Статистика',
 };
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
+
+let currentUser: User | null = null;
 
 function ensureActiveListId(): string {
   let lists = loadLists();
@@ -33,83 +39,75 @@ function ensureActiveListId(): string {
   return lists[0].id;
 }
 
-function validTab(hash: string): Tab | null {
-  const t = hash.replace('#', '');
-  return t === 'play' || t === 'import' || t === 'words' || t === 'stats' ? t : null;
+// The hash is "#<tab>" or, inside Words, "#words/<section>".
+function currentTab(): Tab {
+  const tab = location.hash.replace('#', '').split('/')[0];
+  return tab === 'game' || tab === 'words' ? tab : 'translate';
 }
 
-function currentTab(activeListId: string): Tab {
-  const fromHash = validTab(location.hash);
-  if (fromHash) return fromHash;
-  const list = getList(activeListId);
-  return !list || list.words.length === 0 ? 'import' : 'play';
+function currentSection(): WordsSection {
+  const section = location.hash.split('/')[1];
+  return section === 'import' || section === 'stats' ? section : 'list';
 }
 
-function navigate(tab: Tab): void {
-  location.hash = tab;
+function navigate(target: Tab | `words/${WordsSection}`): void {
+  location.hash = target;
 }
 
-function renderSyncPanel(): string {
-  const code = getSyncCode();
-  if (code) {
-    return `
-      <div class="card" style="margin-bottom:20px;">
-        <div class="row-between">
-          <div>
-            <strong>Синхронізація увімкнена</strong>
-            <div class="muted" style="font-size:13px; margin-top:2px;">
-              Код: <code>${code}</code> — введи його на іншому пристрої, щоб бачити ці ж списки й прогрес там.
-            </div>
-          </div>
-          <button class="btn btn-danger" id="disable-sync-btn">Відключити</button>
-        </div>
-      </div>
-    `;
-  }
-  return `
-    <div class="card" style="margin-bottom:20px;">
-      <div class="row-between">
-        <div>
-          <strong>Синхронізація між пристроями</strong>
-          <div class="muted" style="font-size:13px; margin-top:2px;">Вимкнена — дані лише в цьому браузері.</div>
-        </div>
-        <div class="row">
-          <button class="btn" id="enable-sync-btn">Увімкнути синхронізацію</button>
-          <button class="btn" id="join-sync-btn">Підключитись за кодом</button>
-        </div>
-      </div>
-      <div id="sync-status"></div>
+function renderWordsTab(view: HTMLElement, listId: string): void {
+  const section = currentSection();
+  view.innerHTML = `
+    <div class="row" style="margin-bottom:16px;">
+      ${(Object.keys(SECTION_LABELS) as WordsSection[])
+        .map((s) => `<button data-section="${s}" class="btn ${s === section ? 'btn-primary' : ''}">${SECTION_LABELS[s]}</button>`)
+        .join('')}
     </div>
+    <div id="section"></div>
   `;
+  view.querySelectorAll<HTMLButtonElement>('button[data-section]').forEach((btn) => {
+    btn.addEventListener('click', () => navigate(`words/${btn.dataset.section as WordsSection}`));
+  });
+
+  const container = view.querySelector<HTMLDivElement>('#section')!;
+  switch (section) {
+    case 'list':
+      renderWordsView(container, listId);
+      break;
+    case 'import':
+      renderImportView(container, listId, () => navigate('game'));
+      break;
+    case 'stats':
+      renderStatsView(container, listId);
+      break;
+  }
+}
+
+function wordCountLabel(count: number): string {
+  return `Слів у списку: ${count}`;
+}
+
+/** Updates the word count in the header without re-rendering (and so resetting) the current view. */
+function refreshWordCount(): void {
+  const el = app.querySelector<HTMLSpanElement>('#word-count');
+  const list = getList(ensureActiveListId());
+  if (el && list) el.textContent = wordCountLabel(list.words.length);
 }
 
 function render(): void {
+  if (!currentUser) return;
   const activeListId = ensureActiveListId();
-  const lists = loadLists();
   const activeList = getList(activeListId)!;
-  const tab = currentTab(activeListId);
+  const tab = currentTab();
 
   app.innerHTML = `
-    <h1>Німецькі слова</h1>
-    <p class="subtitle">Тренажер лексики: імпортуй слова, грай, відстежуй прогрес.</p>
-
-    <div class="card" style="margin-bottom:20px;">
-      <div class="row-between">
-        <div class="row">
-          <label class="muted" for="list-select">Список:</label>
-          <select id="list-select">
-            ${lists.map((l) => `<option value="${l.id}" ${l.id === activeListId ? 'selected' : ''}>${l.name} (${l.words.length})</option>`).join('')}
-          </select>
-        </div>
-        <div class="row">
-          <button class="btn" id="new-list-btn">+ Новий список</button>
-          <button class="btn" id="rename-list-btn">Перейменувати</button>
-          <button class="btn btn-danger" id="delete-list-btn">Видалити список</button>
-        </div>
+    <div class="row-between">
+      <h1>Wordly</h1>
+      <div class="row">
+        <span class="muted" id="account-login"></span>
+        <button class="btn" id="sign-out-btn">Вийти</button>
       </div>
     </div>
-
-    ${renderSyncPanel()}
+    <p class="subtitle">Німецька лексика: перекладай слова, грай, відстежуй прогрес. <span id="word-count">${wordCountLabel(activeList.words.length)}</span></p>
 
     <nav class="tabs">
       ${(Object.keys(TAB_LABELS) as Tab[])
@@ -119,106 +117,61 @@ function render(): void {
     <div id="view"></div>
   `;
 
+  app.querySelector<HTMLSpanElement>('#account-login')!.textContent = displayLogin(currentUser);
+  app.querySelector<HTMLButtonElement>('#sign-out-btn')!.addEventListener('click', async () => {
+    forgetApiKey();
+    await signOutAccount(true);
+  });
+
   app.querySelectorAll<HTMLButtonElement>('nav.tabs button').forEach((btn) => {
     btn.addEventListener('click', () => navigate(btn.dataset.tab as Tab));
-  });
-
-  app.querySelector<HTMLSelectElement>('#list-select')!.addEventListener('change', (e) => {
-    setActiveListId((e.target as HTMLSelectElement).value);
-    render();
-  });
-
-  app.querySelector<HTMLButtonElement>('#new-list-btn')!.addEventListener('click', () => {
-    const name = prompt('Назва нового списку (наприклад: Список дружини):');
-    if (name && name.trim()) {
-      createList(name);
-      render();
-    }
-  });
-
-  app.querySelector<HTMLButtonElement>('#rename-list-btn')!.addEventListener('click', () => {
-    const name = prompt('Нова назва списку:', activeList.name);
-    if (name && name.trim()) {
-      renameList(activeListId, name);
-      render();
-    }
-  });
-
-  app.querySelector<HTMLButtonElement>('#delete-list-btn')!.addEventListener('click', () => {
-    if (confirm(`Видалити список "${activeList.name}" і всі слова та статистику в ньому? Дію не можна скасувати.`)) {
-      deleteList(activeListId);
-      render();
-    }
-  });
-
-  const enableSyncBtn = app.querySelector<HTMLButtonElement>('#enable-sync-btn');
-  enableSyncBtn?.addEventListener('click', async () => {
-    const statusEl = app.querySelector<HTMLDivElement>('#sync-status')!;
-    enableSyncBtn.disabled = true;
-    statusEl.innerHTML = `<p class="muted" style="margin-top:10px;">Вмикаємо синхронізацію…</p>`;
-    try {
-      const { enableSync } = await loadSyncModule();
-      await enableSync(render);
-      render();
-    } catch (err) {
-      statusEl.innerHTML = `<div class="msg msg-error" style="margin-top:10px;">Не вдалося увімкнути синхронізацію: ${String(err)}</div>`;
-      enableSyncBtn.disabled = false;
-    }
-  });
-
-  app.querySelector<HTMLButtonElement>('#join-sync-btn')?.addEventListener('click', async () => {
-    const code = prompt('Введи код синхронізації з іншого пристрою:');
-    if (!code || !code.trim()) return;
-    if (
-      !confirm(
-        'Приєднання замінить поточні локальні списки на цьому пристрої даними з хмари. Продовжити?'
-      )
-    ) {
-      return;
-    }
-    const statusEl = app.querySelector<HTMLDivElement>('#sync-status')!;
-    statusEl.innerHTML = `<p class="muted" style="margin-top:10px;">Підключаємось…</p>`;
-    try {
-      const { joinSync } = await loadSyncModule();
-      const result = await joinSync(code, render);
-      if (result === 'not-found') {
-        statusEl.innerHTML = `<div class="msg msg-error" style="margin-top:10px;">Код не знайдено. Перевір, чи правильно введений.</div>`;
-        return;
-      }
-      render();
-    } catch (err) {
-      statusEl.innerHTML = `<div class="msg msg-error" style="margin-top:10px;">Не вдалося підключитись: ${String(err)}</div>`;
-    }
-  });
-
-  app.querySelector<HTMLButtonElement>('#disable-sync-btn')?.addEventListener('click', async () => {
-    if (confirm('Відключити синхронізацію? Дані залишаться на цьому пристрої, але перестануть оновлюватись з інших.')) {
-      const { disableSync } = await loadSyncModule();
-      disableSync();
-      render();
-    }
   });
 
   const view = app.querySelector<HTMLDivElement>('#view')!;
 
   switch (tab) {
-    case 'import':
-      renderImportView(view, activeListId, () => navigate('play'));
+    case 'translate':
+      renderTranslateView(view, activeListId, refreshWordCount);
       break;
-    case 'play':
+    case 'game':
       renderQuizView(view, activeListId);
       break;
     case 'words':
-      renderWordsView(view, activeListId);
-      break;
-    case 'stats':
-      renderStatsView(view, activeListId);
+      renderWordsTab(view, activeListId);
       break;
   }
 }
 
-window.addEventListener('hashchange', render);
-if (getSyncCode()) {
-  loadSyncModule().then(({ resumeSyncIfEnabled }) => resumeSyncIfEnabled(render));
+function showLoading(): void {
+  app.innerHTML = `<h1>Wordly</h1><p class="subtitle">Завантаження…</p>`;
 }
-render();
+
+window.addEventListener('hashchange', render);
+
+showLoading();
+watchAuth(async (user) => {
+  if (!user) {
+    const wasSignedIn = currentUser !== null;
+    currentUser = null;
+    // An account that isn't allowed in firestore.rules is signed out below with its own notice.
+    if (wasSignedIn || !app.querySelector('#login-form')) renderLoginView(app, null);
+    return;
+  }
+  showLoading();
+  try {
+    await startAccountSync(user, render);
+  } catch (err) {
+    const denied = (err as { code?: string }).code === 'permission-denied';
+    // Words already on this device are left alone: they may not be saved anywhere else yet.
+    await signOutAccount(false);
+    renderLoginView(
+      app,
+      denied ? 'Цей акаунт не має доступу до тренажера.' : `Не вдалося завантажити слова: ${String(err)}`
+    );
+    return;
+  }
+  // Without the key only translating is unavailable; the rest of the app works (e.g. offline).
+  await loadApiKey().catch(() => {});
+  currentUser = user;
+  render();
+});
