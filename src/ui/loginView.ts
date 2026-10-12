@@ -7,7 +7,7 @@ function describeSignInError(err: unknown): string {
     case 'auth/wrong-password':
     case 'auth/user-not-found':
     case 'auth/invalid-email':
-      return 'Невірний логін або пароль.';
+      return 'Невірна пошта або пароль.';
     case 'auth/too-many-requests':
       return 'Забагато невдалих спроб. Зачекай кілька хвилин і спробуй ще раз.';
     case 'auth/network-request-failed':
@@ -23,7 +23,7 @@ export function renderLoginView(container: HTMLElement, notice: string | null): 
     <p class="subtitle">Тренажер німецької лексики. Увійди, щоб побачити свої слова.</p>
     <div class="card" style="max-width:360px;">
       <form id="login-form" style="display:flex; flex-direction:column; gap:10px;">
-        <input type="text" id="login-input" placeholder="Логін" autocomplete="username" autocapitalize="none" required />
+        <input type="email" id="login-input" placeholder="Пошта" autocomplete="username" autocapitalize="none" required />
         <input type="password" id="password-input" placeholder="Пароль" autocomplete="current-password" required />
         <button class="btn btn-primary" id="login-btn" type="submit">Увійти</button>
       </form>

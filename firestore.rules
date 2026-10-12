@@ -1,13 +1,13 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // The app has no public sign-up: the accounts below are created by hand
-    // in the Firebase console (Authentication → Users). Listing their emails
-    // here is what keeps everyone else out, even someone who manages to
+    // The app has no public sign-up: the two accounts below are created by
+    // hand in the Firebase console (Authentication → Users). Listing their
+    // UIDs here is what keeps everyone else out, even someone who manages to
     // create an account of their own through the Auth API.
     function isMember() {
       return request.auth != null
-        && request.auth.token.email in ['volodymyr@wordly.local', 'druzhyna@wordly.local'];
+        && request.auth.uid in ['YpZshKlYwubuBvwfyzaG82PZVDq1', '1XcepLsKCEdbml9UWMjwUWd94663'];
     }
 
     // Each account's single word list.

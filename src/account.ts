@@ -12,27 +12,21 @@ import {
 } from './storage';
 import type { Word, WordList } from './types';
 
-// Accounts are created by hand in the Firebase console. People sign in with a
-// short login; Firebase needs an email, so the login gets this domain appended.
-const LOGIN_DOMAIN = 'wordly.local';
+// Accounts are created by hand in the Firebase console and allow-listed in
+// firestore.rules; there is no sign-up in the app.
 const PUSH_DEBOUNCE_MS = 600;
 
-function loginToEmail(login: string): string {
-  const trimmed = login.trim().toLowerCase();
-  return trimmed.includes('@') ? trimmed : `${trimmed}@${LOGIN_DOMAIN}`;
-}
-
+/** The part of the account's email before the "@", for showing who is signed in. */
 export function displayLogin(user: User): string {
-  const email = user.email ?? '';
-  return email.endsWith(`@${LOGIN_DOMAIN}`) ? email.slice(0, -LOGIN_DOMAIN.length - 1) : email;
+  return (user.email ?? '').split('@')[0];
 }
 
 export function watchAuth(onChange: (user: User | null) => void): void {
   onAuthStateChanged(auth, onChange);
 }
 
-export async function signIn(login: string, password: string): Promise<void> {
-  await signInWithEmailAndPassword(auth, loginToEmail(login), password);
+export async function signIn(email: string, password: string): Promise<void> {
+  await signInWithEmailAndPassword(auth, email.trim(), password);
 }
 
 function generateRevision(): string {

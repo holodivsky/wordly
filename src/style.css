@@ -406,6 +406,7 @@ textarea {
 
 select,
 input[type='text'],
+input[type='email'],
 input[type='password'],
 input[type='search'] {
   min-height: 44px;
@@ -422,6 +423,7 @@ input[type='search'] {
 
 select:focus,
 input[type='text']:focus,
+input[type='email']:focus,
 input[type='password']:focus,
 input[type='search']:focus {
   outline: none;
