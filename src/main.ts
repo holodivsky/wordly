@@ -82,15 +82,11 @@ function renderWordsTab(view: HTMLElement, listId: string): void {
   }
 }
 
-function wordCountLabel(count: number): string {
-  return `Слів у списку: ${count}`;
-}
-
-/** Updates the word count in the header without re-rendering (and so resetting) the current view. */
+/** Updates the word count on the Words tab without re-rendering (and so resetting) the current view. */
 function refreshWordCount(): void {
   const el = app.querySelector<HTMLSpanElement>('#word-count');
   const list = getList(ensureActiveListId());
-  if (el && list) el.textContent = wordCountLabel(list.words.length);
+  if (el && list) el.textContent = String(list.words.length);
 }
 
 function render(): void {
@@ -100,18 +96,22 @@ function render(): void {
   const tab = currentTab();
 
   app.innerHTML = `
-    <div class="row-between">
+    <div class="row-between" style="margin-bottom:8px;">
       <h1>Wordly</h1>
-      <div class="row">
-        <span class="muted" id="account-login"></span>
-        <button class="btn" id="sign-out-btn">Вийти</button>
+      <div class="row" style="gap:4px;">
+        <span class="muted" id="account-login" style="font-size:13px;"></span>
+        <button class="btn-link" id="sign-out-btn">Вийти</button>
       </div>
     </div>
-    <p class="subtitle">Німецька лексика: перекладай слова, грай, відстежуй прогрес. <span id="word-count">${wordCountLabel(activeList.words.length)}</span></p>
 
     <nav class="tabs">
       ${(Object.keys(TAB_LABELS) as Tab[])
-        .map((t) => `<button data-tab="${t}" class="${t === tab ? 'active' : ''}">${TAB_LABELS[t]}</button>`)
+        .map(
+          (t) =>
+            `<button data-tab="${t}" class="${t === tab ? 'active' : ''}">${TAB_LABELS[t]}${
+              t === 'words' ? ` <span class="muted" id="word-count">${activeList.words.length}</span>` : ''
+            }</button>`
+        )
         .join('')}
     </nav>
     <div id="view"></div>

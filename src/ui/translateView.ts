@@ -6,6 +6,7 @@ import { ALL_POS, displayGerman, type Article, type PartOfSpeech } from '../type
 
 const PLUS_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>`;
 const CHECK_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
+const SEARCH_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>`;
 const ADD_LABEL = `${PLUS_ICON}<span>Додати</span>`;
 const ADDED_LABEL = `${CHECK_ICON}<span>Додано</span>`;
 const ADDED_FEEDBACK_MS = 1400;
@@ -27,25 +28,20 @@ export function renderTranslateView(container: HTMLElement, listId: string, onWo
 
   container.innerHTML = `
     <div class="card">
-      <h2>Переклад слова</h2>
-      <p class="subtitle">Пиши слово німецькою або українською — переклад з’явиться сам. Enter покаже ще й приклади та граматику.</p>
       <form class="translate-form" id="translate-form">
         <div class="translate-field" id="translate-field">
-          <input type="text" id="translate-input" placeholder="наприклад: Tisch або стіл" autocomplete="off" autocapitalize="none" enterkeyhint="search" role="combobox" aria-controls="suggestions" aria-expanded="false" />
-          <span class="spinner field-spinner" aria-hidden="true"></span>
-          <ul class="suggestions" id="suggestions" role="listbox" hidden></ul>
+          <input type="text" id="translate-input" placeholder="Слово німецькою або українською" autocomplete="off" autocapitalize="none" enterkeyhint="search" aria-controls="suggestions" />
+          <button class="field-btn" id="translate-btn" type="submit" title="Переклад із прикладами й граматикою" aria-label="Переклад із прикладами й граматикою">${SEARCH_ICON}<span class="spinner" aria-hidden="true"></span></button>
         </div>
-        <div class="translate-actions">
-          <button class="btn btn-primary" id="translate-btn" type="submit"><span class="spinner" aria-hidden="true"></span>Перекласти</button>
-          <button class="btn btn-add" id="add-btn" type="submit" form="translate-result" title="Додати до слів" disabled>${ADD_LABEL}</button>
-        </div>
+        <button class="btn btn-add" id="add-btn" type="submit" form="translate-result" title="Додати до слів" disabled>${ADD_LABEL}</button>
       </form>
-      <div class="muted" id="translate-hint" style="font-size:13px; margin-top:8px; min-height:18px;"></div>
-      <div id="translate-status" style="margin-top:12px;"></div>
-      <div id="translate-details" class="reveal" style="border-top:1px solid var(--border); margin-top:16px; padding-top:16px;" hidden>
+      <ul class="suggestions" id="suggestions" role="listbox" hidden></ul>
+      <div class="muted" id="translate-hint"></div>
+      <div id="translate-status"></div>
+      <div id="translate-details" class="reveal" hidden>
         <div id="result-heading" style="font-size:20px; font-weight:700;"></div>
         <ol id="result-translations" style="margin:8px 0 0; padding-left:22px; font-size:16px;"></ol>
-        <button class="btn-link" id="more-btn" type="button" style="padding-left:0; margin-top:8px;">Показати приклади й граматику</button>
+        <button class="btn-link" id="more-btn" type="button" style="padding-left:0; margin-top:4px;">Приклади й граматика</button>
         <div id="result-extras" class="reveal" hidden>
           <h2 style="margin-top:18px;">Приклади</h2>
           <div id="result-examples"></div>
@@ -68,7 +64,6 @@ export function renderTranslateView(container: HTMLElement, listId: string, onWo
         </form>
       </div>
     </div>
-    <p style="text-align:center;"><button class="btn-link" id="forget-key-btn" type="button">Видалити API-ключ</button></p>
   `;
 
   const $ = <T extends HTMLElement>(selector: string) => container.querySelector<T>(selector)!;
@@ -251,7 +246,6 @@ export function renderTranslateView(container: HTMLElement, listId: string, onWo
     suggestionsEl.hidden = true;
     suggestionsEl.replaceChildren();
     activeSuggestion = -1;
-    input.setAttribute('aria-expanded', 'false');
   }
 
   function setActiveSuggestion(index: number): void {
@@ -289,7 +283,6 @@ export function renderTranslateView(container: HTMLElement, listId: string, onWo
     );
     activeSuggestion = -1;
     suggestionsEl.hidden = words.length === 0;
-    input.setAttribute('aria-expanded', String(words.length > 0));
   }
 
   function scheduleSuggestions(): void {
@@ -358,16 +351,6 @@ export function renderTranslateView(container: HTMLElement, listId: string, onWo
   });
 
   moreBtn.addEventListener('click', () => translate(true));
-
-  $<HTMLButtonElement>('#forget-key-btn').addEventListener('click', async () => {
-    if (!confirm('Видалити API-ключ? Переклад перестане працювати в обох акаунтах, доки хтось не вставить ключ знову.')) return;
-    try {
-      await setApiKey(null);
-      renderTranslateView(container, listId, onWordAdded);
-    } catch (err) {
-      showStatus(`Не вдалося видалити ключ: ${String(err)}`, 'error');
-    }
-  });
 
   resultForm.addEventListener('submit', (e) => {
     e.preventDefault();

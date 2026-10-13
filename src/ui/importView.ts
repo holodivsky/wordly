@@ -1,4 +1,5 @@
 import { parseTable, parseJsonList, listToJsonString } from '../importer';
+import { getApiKey, setApiKey } from '../apiKey';
 import { addWordsToList, getList } from '../storage';
 import { SAMPLE_WORDS } from '../sampleData';
 
@@ -54,6 +55,7 @@ gehen		йти	Verb"></textarea>
         <strong>Поділитись словами з кимось:</strong> натисни "Скачати мої слова як JSON" і передай файл — інша людина завантажує цей .json у себе на цій же вкладці. Прогрес вивчення в кожного залишається окремим.
       </div>
     </div>
+    ${getApiKey() ? `<p style="text-align:center;"><button class="btn-link" id="forget-key-btn" type="button">Видалити API-ключ Anthropic</button></p>` : ''}
   `;
 
   const textarea = container.querySelector<HTMLTextAreaElement>('#raw-input')!;
@@ -110,6 +112,19 @@ gehen		йти	Verb"></textarea>
     if (added > 0) {
       textarea.value = '';
       onImported();
+    }
+  });
+
+  // Rarely needed, so it lives here rather than on the Translate tab: removes the shared key for both accounts.
+  const forgetKeyBtn = container.querySelector<HTMLButtonElement>('#forget-key-btn');
+  forgetKeyBtn?.addEventListener('click', async () => {
+    if (!confirm('Видалити API-ключ? Переклад перестане працювати в обох акаунтах, доки хтось не вставить ключ знову.')) return;
+    try {
+      await setApiKey(null);
+      forgetKeyBtn.parentElement!.remove();
+      showResult('API-ключ видалено.', false);
+    } catch (err) {
+      showResult(`Не вдалося видалити ключ: ${String(err)}`, true);
     }
   });
 
