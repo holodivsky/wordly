@@ -1,4 +1,5 @@
 import { signIn } from '../account';
+import { LOGO } from '../logo';
 import { getLang, setLang, t } from '../i18n';
 
 function describeSignInError(err: unknown): string {
@@ -21,7 +22,7 @@ function describeSignInError(err: unknown): string {
 export function renderLoginView(container: HTMLElement, notice: string | null): void {
   container.innerHTML = `
     <div class="row-between" style="margin-bottom:8px;">
-      <h1>Wordly</h1>
+      <h1>${LOGO}Wordly</h1>
       <button class="btn-link" id="lang-btn" type="button" title="${t('switchLangTitle')}">${t('switchLang')}</button>
     </div>
     <p class="subtitle">${t('loginSubtitle')}</p>

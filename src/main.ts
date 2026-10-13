@@ -8,15 +8,19 @@ import { renderTranslateView } from './ui/translateView';
 import { loadLists, createList, getActiveListId, getList } from './storage';
 import { displayLogin, signOutAccount, startAccountSync, watchAuth } from './account';
 import { forgetApiKey, loadApiKey } from './apiKey';
+import { LOGO } from './logo';
 import { getLang, setLang, t, type MessageKey } from './i18n';
+
+// Inside loops over tabs the loop variable is also called `t`.
+const translate = t;
 
 type Tab = 'translate' | 'game' | 'words';
 type WordsSection = 'list' | 'import' | 'stats';
 
-const TAB_LABELS: Record<Tab, string> = {
-  translate: 'Translate',
-  game: 'Game',
-  words: 'Words',
+const TAB_LABELS: Record<Tab, MessageKey> = {
+  translate: 'tabTranslate',
+  game: 'tabGame',
+  words: 'tabWords',
 };
 
 const SECTION_LABELS: Record<WordsSection, MessageKey> = {
@@ -98,7 +102,7 @@ function render(): void {
 
   app.innerHTML = `
     <div class="row-between" style="margin-bottom:8px;">
-      <h1>Wordly</h1>
+      <h1>${LOGO}Wordly</h1>
       <div class="row" style="gap:4px;">
         <span class="muted" id="account-login" style="font-size:13px;"></span>
         <button class="btn-link" id="lang-btn" title="${t('switchLangTitle')}">${t('switchLang')}</button>
@@ -110,7 +114,7 @@ function render(): void {
       ${(Object.keys(TAB_LABELS) as Tab[])
         .map(
           (t) =>
-            `<button data-tab="${t}" class="${t === tab ? 'active' : ''}">${TAB_LABELS[t]}${
+            `<button data-tab="${t}" class="${t === tab ? 'active' : ''}">${translate(TAB_LABELS[t])}${
               t === 'words' ? ` <span class="muted" id="word-count">${activeList.words.length}</span>` : ''
             }</button>`
         )
@@ -149,7 +153,7 @@ function render(): void {
 }
 
 function showLoading(): void {
-  app.innerHTML = `<h1>Wordly</h1><p class="subtitle">${t('loading')}</p>`;
+  app.innerHTML = `<h1>${LOGO}Wordly</h1><p class="subtitle">${t('loading')}</p>`;
 }
 
 window.addEventListener('hashchange', render);

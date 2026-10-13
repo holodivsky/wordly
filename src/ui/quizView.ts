@@ -17,53 +17,67 @@ export function renderQuizView(container: HTMLElement, listId: string): void {
   renderStart();
 
   function renderStart(): void {
-    const pool = filterWords(listId, filter);
-    const totalWords = getList(listId)?.words.length ?? 0;
+    const allWords = getList(listId)?.words ?? [];
 
-    if (totalWords === 0) {
+    if (allWords.length === 0) {
       container.innerHTML = `
         <div class="card empty-state">
-          ${t('quizEmpty')}
+          <p>${t('quizEmpty')}</p>
+          <a class="btn btn-primary" href="#translate">${t('addWords')}</a>
         </div>
       `;
       return;
     }
 
-    const notEnough = pool.length < 2;
+    const learnedCount = allWords.filter((w) => w.learned).length;
+    const groups: { filter: Filter; label: string; count: number }[] = [
+      { filter: 'not-learned', label: t('filterNotLearned'), count: allWords.length - learnedCount },
+      { filter: 'all', label: t('filterAll'), count: allWords.length },
+      { filter: 'learned', label: t('filterLearned'), count: learnedCount },
+    ];
+    const pool = filterWords(listId, filter);
 
     container.innerHTML = `
-      <div class="card">
+      <div class="card game-start">
         <h2>${t('quizTitle')}</h2>
         <p class="subtitle">${t('quizIntro')}</p>
-        <div class="row-between">
-          <div class="row">
-            <label class="muted" for="filter-select">${t('wordsLabel')}</label>
-            <select id="filter-select">
-              <option value="not-learned" ${filter === 'not-learned' ? 'selected' : ''}>${t('filterNotLearnedYet')}</option>
-              <option value="all" ${filter === 'all' ? 'selected' : ''}>${t('filterAll')}</option>
-              <option value="learned" ${filter === 'learned' ? 'selected' : ''}>${t('filterLearned')}</option>
-            </select>
+        <div class="game-progress">
+          <div class="row-between">
+            <span class="muted">${t('colLearned')}</span>
+            <strong>${learnedCount} / ${allWords.length}</strong>
           </div>
-          <span class="muted">${t('available', { count: pool.length })}</span>
+          <div class="accuracy-bar">
+            <div class="accuracy-bar-fill" style="width:${Math.round((learnedCount / allWords.length) * 100)}%; background:var(--good);"></div>
+          </div>
+        </div>
+        <div class="segmented" role="group" aria-label="${t('wordsLabel')}">
+          ${groups
+            .map(
+              (g) => `
+            <button type="button" data-filter="${g.filter}" class="${g.filter === filter ? 'active' : ''}" aria-pressed="${g.filter === filter}">
+              <strong>${g.count}</strong>
+              <span>${g.label}</span>
+            </button>`
+            )
+            .join('')}
         </div>
         ${
-          notEnough
-            ? `<div class="msg msg-error" style="margin-top:14px;">${t('needTwo')}</div>`
-            : `<div class="row" style="margin-top:16px;"><button class="btn btn-primary" id="start-btn">${t('startRound')}</button></div>`
+          pool.length < 2
+            ? `<div class="msg msg-error" style="margin:0;">${t('needTwo')}</div>`
+            : `<button class="btn btn-primary btn-big" id="start-btn">${t('startRound')}</button>`
         }
       </div>
     `;
 
-    const select = container.querySelector<HTMLSelectElement>('#filter-select')!;
-    select.addEventListener('change', () => {
-      filter = select.value as Filter;
-      renderStart();
+    container.querySelectorAll<HTMLButtonElement>('.segmented button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        filter = btn.dataset.filter as Filter;
+        renderStart();
+      });
     });
 
-    const startBtn = container.querySelector<HTMLButtonElement>('#start-btn');
-    startBtn?.addEventListener('click', () => {
-      const round = buildRound(pool, 10);
-      runRound(round);
+    container.querySelector<HTMLButtonElement>('#start-btn')?.addEventListener('click', () => {
+      runRound(buildRound(pool, 10));
     });
   }
 
@@ -82,6 +96,9 @@ export function renderQuizView(container: HTMLElement, listId: string): void {
       container.innerHTML = `
         <div class="card">
           <div class="quiz-progress">${t('progress', { n: index + 1, total, correct: correctCount })}</div>
+          <div class="accuracy-bar">
+            <div class="accuracy-bar-fill" style="width:${Math.round((index / total) * 100)}%; background:var(--accent);"></div>
+          </div>
           <div class="quiz-word">${displayGerman(q.word)}</div>
           <span class="badge badge-${q.word.partOfSpeech}">${q.word.partOfSpeech}</span>
           <div class="quiz-options" style="margin-top:20px;">
@@ -153,7 +170,7 @@ export function renderQuizView(container: HTMLElement, listId: string): void {
       container.innerHTML = `
         <div class="card">
           <h2>${t('summaryTitle')}</h2>
-          <p style="font-size:18px;">${t('summaryScore', { correct: correctCount, total })}</p>
+          <p class="game-score">${t('summaryScore', { correct: correctCount, total })}</p>
           ${
             missed.length > 0
               ? `<div style="margin-top:14px;">
@@ -177,7 +194,7 @@ export function renderQuizView(container: HTMLElement, listId: string): void {
               : `<p class="muted">${t('noMistakes')}</p>`
           }
           <div class="row" style="margin-top:20px;">
-            <button class="btn btn-primary" id="again-btn">${t('again')}</button>
+            <button class="btn btn-primary btn-big" id="again-btn">${t('again')}</button>
           </div>
         </div>
       `;
