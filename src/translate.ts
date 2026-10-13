@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { ALL_POS, type NewWord } from './types';
+import { t } from './i18n';
 
 const CARD_PROMPT = `Ти допомагаєш українцю вчити німецьку лексику. Користувач надсилає одне слово або короткий вираз — німецькою або українською.
 
@@ -97,23 +98,23 @@ async function requestCard(
   }
 
   if (response.stop_reason === 'refusal') {
-    throw new Error('Claude відмовився перекладати це слово.');
+    throw new Error(t('errRefused'));
   }
   const text = response.content.find((b): b is Anthropic.TextBlock => b.type === 'text')?.text;
   if (!text || response.stop_reason === 'max_tokens') {
-    throw new Error('Claude повернув неповну відповідь. Спробуй ще раз.');
+    throw new Error(t('errIncomplete'));
   }
   try {
     return JSON.parse(text) as RawCard;
   } catch {
-    throw new Error('Не вдалося розібрати відповідь Claude. Спробуй ще раз.');
+    throw new Error(t('errParse'));
   }
 }
 
 function toWordCard(raw: RawCard): WordCard {
   const translations = (raw.translations ?? []).map((t) => t.trim()).filter(Boolean);
   if (translations.length === 0) {
-    throw new Error('Claude не знайшов перекладу для цього слова.');
+    throw new Error(t('errNoTranslation'));
   }
   return {
     word: {
@@ -127,13 +128,13 @@ function toWordCard(raw: RawCard): WordCard {
   };
 }
 
-/** The short card only — fast and cheap enough to run while the user is still typing. Errors carry a user-facing (Ukrainian) message. */
+/** The short card only — fast and cheap enough to run while the user is still typing. Errors carry a user-facing message. */
 export async function translateQuick(apiKey: string, input: string, signal?: AbortSignal): Promise<WordCard> {
   const system = `${CARD_PROMPT}\n\n${TYPO_PROMPT}`;
   return toWordCard(await requestCard(apiKey, input, system, objectSchema(CARD_PROPERTIES), signal));
 }
 
-/** The full card with usage examples and grammar notes. Errors carry a user-facing (Ukrainian) message. */
+/** The full card with usage examples and grammar notes. Errors carry a user-facing message. */
 export async function translateWord(apiKey: string, input: string, signal?: AbortSignal): Promise<Translation> {
   const system = `${CARD_PROMPT}\n${DETAILS_PROMPT}\n\n${TYPO_PROMPT}`;
   const schema = objectSchema({ ...CARD_PROPERTIES, ...DETAILS_PROPERTIES });
@@ -143,24 +144,22 @@ export async function translateWord(apiKey: string, input: string, signal?: Abor
 
 function describeApiError(err: unknown): string {
   if (err instanceof Anthropic.AuthenticationError) {
-    return 'API-ключ недійсний. Перевір його або встав новий.';
+    return t('errAuth');
   }
   if (err instanceof Anthropic.PermissionDeniedError) {
-    return 'Цей API-ключ не має доступу до моделі.';
+    return t('errPermission');
   }
   if (err instanceof Anthropic.RateLimitError) {
-    return 'Забагато запитів. Зачекай хвилину і спробуй ще раз.';
+    return t('errRate');
   }
   if (err instanceof Anthropic.BadRequestError) {
-    return /credit balance/i.test(err.message)
-      ? 'На балансі Anthropic закінчились кошти. Поповни його в консолі.'
-      : `Запит відхилено: ${err.message}`;
+    return /credit balance/i.test(err.message) ? t('errCredits') : t('errRejected', { error: err.message });
   }
   if (err instanceof Anthropic.APIConnectionError) {
-    return 'Немає з’єднання з Anthropic. Перевір інтернет.';
+    return t('errConnection');
   }
   if (err instanceof Anthropic.APIError) {
-    return `Помилка Anthropic (${err.status ?? '?'}). Спробуй пізніше.`;
+    return t('errApi', { status: err.status ?? '?' });
   }
   return String(err);
 }

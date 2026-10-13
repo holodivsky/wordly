@@ -1,4 +1,5 @@
 import type { Article, NewWord, PartOfSpeech, WordList } from './types';
+import { t } from './i18n';
 
 export interface ParseResult {
   words: NewWord[];
@@ -110,7 +111,7 @@ export function parseTable(raw: string): ParseResult {
     .filter((l) => l.length > 0);
 
   if (lines.length === 0) {
-    return { words: [], errors: ['Немає даних для імпорту.'] };
+    return { words: [], errors: [t('impNoData')] };
   }
 
   const delimiter = detectDelimiter(lines[0]);
@@ -123,9 +124,7 @@ export function parseTable(raw: string): ParseResult {
   if (!hasGerman || !hasTranslation) {
     return {
       words: [],
-      errors: [
-        'Не вдалося розпізнати заголовки колонок. Потрібні щонайменше колонки "german" (німецьке слово) та "translation" (переклад). Перегляньте приклад формату нижче.',
-      ],
+      errors: [t('impBadHeaders')],
     };
   }
 
@@ -143,7 +142,7 @@ export function parseTable(raw: string): ParseResult {
     });
 
     if (!row.german || !row.translation) {
-      errors.push(`Рядок ${i + 1}: пропущено — відсутнє слово або переклад.`);
+      errors.push(t('impRowSkipped', { n: i + 1 }));
       continue;
     }
 
@@ -164,7 +163,7 @@ export function parseJsonList(raw: string): JsonParseResult {
   try {
     data = JSON.parse(raw);
   } catch {
-    return { name: null, words: [], errors: ['Не вдалося прочитати JSON — перевір формат файлу.'] };
+    return { name: null, words: [], errors: [t('impBadJson')] };
   }
 
   let name: string | null = null;
@@ -179,7 +178,7 @@ export function parseJsonList(raw: string): JsonParseResult {
   }
 
   if (!Array.isArray(rawWords)) {
-    return { name, words: [], errors: ['У JSON немає масиву "words" зі словами.'] };
+    return { name, words: [], errors: [t('impNoWordsArray')] };
   }
 
   const words: NewWord[] = [];
@@ -187,14 +186,14 @@ export function parseJsonList(raw: string): JsonParseResult {
 
   rawWords.forEach((item, i) => {
     if (!item || typeof item !== 'object') {
-      errors.push(`Елемент ${i + 1}: некоректний формат.`);
+      errors.push(t('impBadItem', { n: i + 1 }));
       return;
     }
     const obj = item as Record<string, unknown>;
     const german = typeof obj.german === 'string' ? obj.german.trim() : '';
     const translation = typeof obj.translation === 'string' ? obj.translation.trim() : '';
     if (!german || !translation) {
-      errors.push(`Елемент ${i + 1}: пропущено — відсутнє слово або переклад.`);
+      errors.push(t('impItemSkipped', { n: i + 1 }));
       return;
     }
     words.push({

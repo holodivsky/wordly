@@ -204,6 +204,82 @@ nav.tabs button:focus-visible {
 
 .btn-add {
   min-height: 44px;
+  width: 44px;
+  padding: 0;
+}
+
+/* On a phone the field needs the width more than the button needs its label. */
+.btn-add span {
+  display: none;
+}
+
+@media (min-width: 600px) {
+  .btn-add {
+    width: auto;
+    padding: 8px 14px;
+  }
+
+  .btn-add span {
+    display: inline;
+  }
+}
+
+.round-actions {
+  display: flex;
+  justify-content: center;
+  gap: 36px;
+  margin: 8px 0 4px;
+}
+
+.round-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 120px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.round-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+  transition: transform 0.08s ease, background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.round-icon-primary {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.round-action:hover .round-icon {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.round-action:active .round-icon {
+  transform: scale(0.94);
+}
+
+.round-action:focus-visible {
+  outline: none;
+}
+
+.round-action:focus-visible .round-icon {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .btn-add:not(:disabled) {
@@ -211,7 +287,7 @@ nav.tabs button:focus-visible {
   color: var(--accent);
 }
 
-/* Brief confirmation on the add button after a word is saved; outlasts its disabled dimming. */
+/* The add button after its word is saved: stays this way, overriding the disabled dimming, until another word is typed. */
 .btn-add.btn-added {
   background: var(--good);
   border-color: var(--good);

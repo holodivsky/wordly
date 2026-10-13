@@ -1,5 +1,6 @@
 import { getList, updateWordInList, deleteWordFromList, clearListWords } from '../storage';
 import { ALL_POS, accuracy, displayGerman, type PartOfSpeech } from '../types';
+import { t } from '../i18n';
 
 export function renderWordsView(container: HTMLElement, listId: string): void {
   let search = '';
@@ -25,33 +26,33 @@ export function renderWordsView(container: HTMLElement, listId: string): void {
     container.innerHTML = `
       <div class="card">
         <div class="row-between">
-          <h2 style="margin:0;">Слова (${words.length})</h2>
-          ${words.length > 0 ? `<button class="btn btn-danger" id="clear-btn">Очистити все</button>` : ''}
+          <h2 style="margin:0;">${t('wordsTitle', { count: words.length })}</h2>
+          ${words.length > 0 ? `<button class="btn btn-danger" id="clear-btn">${t('clearAll')}</button>` : ''}
         </div>
         ${
           words.length === 0
-            ? `<div class="empty-state">Ще немає слів у цьому списку. Додай їх на вкладці "Імпорт".</div>`
+            ? `<div class="empty-state">${t('wordsEmpty')}</div>`
             : `
           <div class="row" style="margin: 14px 0;">
-            <input type="search" id="search-input" placeholder="Пошук..." value="${search}" />
+            <input type="search" id="search-input" placeholder="${t('search')}" value="${search}" />
             <select id="pos-filter">
-              <option value="all">Усі частини мови</option>
+              <option value="all">${t('allPos')}</option>
               ${ALL_POS.map((p) => `<option value="${p}" ${posFilter === p ? 'selected' : ''}>${p}</option>`).join('')}
             </select>
             <select id="learned-filter">
-              <option value="all" ${learnedFilter === 'all' ? 'selected' : ''}>Усі</option>
-              <option value="not-learned" ${learnedFilter === 'not-learned' ? 'selected' : ''}>Не вивчені</option>
-              <option value="learned" ${learnedFilter === 'learned' ? 'selected' : ''}>Вивчені</option>
+              <option value="all" ${learnedFilter === 'all' ? 'selected' : ''}>${t('filterAll')}</option>
+              <option value="not-learned" ${learnedFilter === 'not-learned' ? 'selected' : ''}>${t('filterNotLearned')}</option>
+              <option value="learned" ${learnedFilter === 'learned' ? 'selected' : ''}>${t('filterLearned')}</option>
             </select>
           </div>
           <div class="table-scroll"><table>
             <thead>
               <tr>
-                <th>Слово</th>
-                <th>Переклад</th>
-                <th>Частина мови</th>
-                <th>Точність</th>
-                <th>Вивчено</th>
+                <th>${t('colWord')}</th>
+                <th>${t('translation')}</th>
+                <th>${t('partOfSpeech')}</th>
+                <th>${t('colAccuracy')}</th>
+                <th>${t('colLearned')}</th>
                 <th></th>
               </tr>
             </thead>
@@ -72,7 +73,7 @@ export function renderWordsView(container: HTMLElement, listId: string): void {
                 .join('')}
             </tbody>
           </table></div>
-          ${filtered.length === 0 ? `<p class="muted" style="margin-top:12px;">Нічого не знайдено за цим фільтром.</p>` : ''}
+          ${filtered.length === 0 ? `<p class="muted" style="margin-top:12px;">${t('nothingFound')}</p>` : ''}
           `
         }
       </div>
@@ -93,7 +94,7 @@ export function renderWordsView(container: HTMLElement, listId: string): void {
       render();
     });
     container.querySelector<HTMLButtonElement>('#clear-btn')?.addEventListener('click', () => {
-      if (confirm('Видалити всі слова та статистику в цьому списку? Цю дію не можна скасувати.')) {
+      if (confirm(t('confirmClear'))) {
         clearListWords(listId);
         render();
       }

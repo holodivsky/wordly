@@ -1,6 +1,7 @@
 import { getList, recordAnswerInList, updateWordInList } from '../storage';
 import { buildRound, type Question } from '../quiz';
 import { accuracy, displayGerman, type Word } from '../types';
+import { t } from '../i18n';
 
 type Filter = 'all' | 'not-learned' | 'learned';
 
@@ -22,7 +23,7 @@ export function renderQuizView(container: HTMLElement, listId: string): void {
     if (totalWords === 0) {
       container.innerHTML = `
         <div class="card empty-state">
-          У цьому списку ще немає слів. Перейди на вкладку "Імпорт", щоб додати слова або завантажити приклад.
+          ${t('quizEmpty')}
         </div>
       `;
       return;
@@ -32,23 +33,23 @@ export function renderQuizView(container: HTMLElement, listId: string): void {
 
     container.innerHTML = `
       <div class="card">
-        <h2>Гра: вгадай переклад</h2>
-        <p class="subtitle">Раунд по 10 слів. Обери правильний переклад із 4 варіантів.</p>
+        <h2>${t('quizTitle')}</h2>
+        <p class="subtitle">${t('quizIntro')}</p>
         <div class="row-between">
           <div class="row">
-            <label class="muted" for="filter-select">Слова:</label>
+            <label class="muted" for="filter-select">${t('wordsLabel')}</label>
             <select id="filter-select">
-              <option value="not-learned" ${filter === 'not-learned' ? 'selected' : ''}>Ще не вивчені</option>
-              <option value="all" ${filter === 'all' ? 'selected' : ''}>Усі</option>
-              <option value="learned" ${filter === 'learned' ? 'selected' : ''}>Вивчені</option>
+              <option value="not-learned" ${filter === 'not-learned' ? 'selected' : ''}>${t('filterNotLearnedYet')}</option>
+              <option value="all" ${filter === 'all' ? 'selected' : ''}>${t('filterAll')}</option>
+              <option value="learned" ${filter === 'learned' ? 'selected' : ''}>${t('filterLearned')}</option>
             </select>
           </div>
-          <span class="muted">Доступно: ${pool.length}</span>
+          <span class="muted">${t('available', { count: pool.length })}</span>
         </div>
         ${
           notEnough
-            ? `<div class="msg msg-error" style="margin-top:14px;">Потрібно щонайменше 2 слова в цій вибірці, щоб почати гру.</div>`
-            : `<div class="row" style="margin-top:16px;"><button class="btn btn-primary" id="start-btn">Почати раунд</button></div>`
+            ? `<div class="msg msg-error" style="margin-top:14px;">${t('needTwo')}</div>`
+            : `<div class="row" style="margin-top:16px;"><button class="btn btn-primary" id="start-btn">${t('startRound')}</button></div>`
         }
       </div>
     `;
@@ -80,7 +81,7 @@ export function renderQuizView(container: HTMLElement, listId: string): void {
 
       container.innerHTML = `
         <div class="card">
-          <div class="quiz-progress">Питання ${index + 1} з ${total} · Правильно: ${correctCount}</div>
+          <div class="quiz-progress">${t('progress', { n: index + 1, total, correct: correctCount })}</div>
           <div class="quiz-word">${displayGerman(q.word)}</div>
           <span class="badge badge-${q.word.partOfSpeech}">${q.word.partOfSpeech}</span>
           <div class="quiz-options" style="margin-top:20px;">
@@ -115,13 +116,13 @@ export function renderQuizView(container: HTMLElement, listId: string): void {
           const feedbackHolder = container.querySelector<HTMLDivElement>('#feedback-holder')!;
           feedbackHolder.innerHTML = `
             <div class="quiz-feedback ${isCorrect ? 'correct' : 'incorrect'}">
-              ${isCorrect ? '✓ Правильно!' : `✗ Неправильно. Правильна відповідь: ${q.word.translation}`}
+              ${isCorrect ? t('answerCorrect') : t('answerWrong', { answer: q.word.translation })}
             </div>
             <div class="row-between" style="margin-top:12px;">
               <button class="btn ${learned ? 'btn-learned-active' : ''}" id="learned-toggle">
-                ${learned ? '✓ Вивчено' : 'Позначити як вивчене'}
+                ${learned ? t('learnedOn') : t('markLearned')}
               </button>
-              <button class="btn btn-primary" id="next-btn">${isLast ? 'Підсумок' : 'Далі'}</button>
+              <button class="btn btn-primary" id="next-btn">${isLast ? t('summaryBtn') : t('next')}</button>
             </div>
           `;
 
@@ -130,7 +131,7 @@ export function renderQuizView(container: HTMLElement, listId: string): void {
             q.word.learned = learned;
             updateWordInList(listId, q.word.id, { learned });
             const btnEl = e.currentTarget as HTMLButtonElement;
-            btnEl.textContent = learned ? '✓ Вивчено' : 'Позначити як вивчене';
+            btnEl.textContent = learned ? t('learnedOn') : t('markLearned');
             btnEl.classList.toggle('btn-learned-active', learned);
           });
 
@@ -151,30 +152,32 @@ export function renderQuizView(container: HTMLElement, listId: string): void {
       const latestWords = getList(listId)?.words ?? [];
       container.innerHTML = `
         <div class="card">
-          <h2>Підсумок раунду</h2>
-          <p style="font-size:18px;">${correctCount} / ${total} правильно</p>
+          <h2>${t('summaryTitle')}</h2>
+          <p style="font-size:18px;">${t('summaryScore', { correct: correctCount, total })}</p>
           ${
             missed.length > 0
               ? `<div style="margin-top:14px;">
-                  <div class="muted" style="margin-bottom:6px;">Слова, де були помилки:</div>
+                  <div class="muted" style="margin-bottom:6px;">${t('missedTitle')}</div>
                   ${missed
                     .map((m) => {
                       const fresh = latestWords.find((w) => w.id === m.word.id) ?? m.word;
                       const acc = accuracy(fresh);
                       const accText =
-                        acc === null ? '' : ` · загальна точність: ${acc}% (${fresh.correct}/${fresh.correct + fresh.incorrect})`;
+                        acc === null
+                          ? ''
+                          : t('overallAcc', { acc, ratio: `${fresh.correct}/${fresh.correct + fresh.incorrect}` });
                       return `
                     <div class="quiz-summary-row">
                       <span>${displayGerman(m.word)} — <strong>${m.word.translation}</strong></span>
-                      <span class="muted">твоя відповідь: ${m.picked}${accText}</span>
+                      <span class="muted">${t('yourAnswer', { answer: m.picked })}${accText}</span>
                     </div>`;
                     })
                     .join('')}
                 </div>`
-              : `<p class="muted">Жодної помилки, чудово!</p>`
+              : `<p class="muted">${t('noMistakes')}</p>`
           }
           <div class="row" style="margin-top:20px;">
-            <button class="btn btn-primary" id="again-btn">Ще раз</button>
+            <button class="btn btn-primary" id="again-btn">${t('again')}</button>
           </div>
         </div>
       `;

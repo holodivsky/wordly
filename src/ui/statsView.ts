@@ -1,5 +1,6 @@
 import { getList } from '../storage';
 import { accuracy, displayGerman } from '../types';
+import { t } from '../i18n';
 
 function accuracyColor(acc: number): string {
   if (acc >= 80) return 'var(--good)';
@@ -11,7 +12,7 @@ export function renderStatsView(container: HTMLElement, listId: string): void {
   const words = getList(listId)?.words ?? [];
 
   if (words.length === 0) {
-    container.innerHTML = `<div class="card empty-state">Ще немає даних. Додай слова і зіграй кілька раундів.</div>`;
+    container.innerHTML = `<div class="card empty-state">${t('statsEmpty')}</div>`;
     return;
   }
 
@@ -24,42 +25,41 @@ export function renderStatsView(container: HTMLElement, listId: string): void {
   const withAttempts = words
     .filter((w) => w.correct + w.incorrect > 0)
     .sort((a, b) => (accuracy(a) ?? 0) - (accuracy(b) ?? 0));
-  const withoutAttempts = words.filter((w) => w.correct + w.incorrect === 0);
 
   container.innerHTML = `
     <div class="stat-cards">
       <div class="stat-card">
         <div class="value">${words.length}</div>
-        <div class="label">Усього слів</div>
+        <div class="label">${t('statTotal')}</div>
       </div>
       <div class="stat-card">
         <div class="value">${learnedCount}</div>
-        <div class="label">Вивчено</div>
+        <div class="label">${t('colLearned')}</div>
       </div>
       <div class="stat-card">
         <div class="value">${totalAttempts}</div>
-        <div class="label">Спроб відповіді</div>
+        <div class="label">${t('statAttempts')}</div>
       </div>
       <div class="stat-card">
         <div class="value" style="color:${overallAccuracy === null ? 'inherit' : accuracyColor(overallAccuracy)}">${
     overallAccuracy === null ? '—' : `${overallAccuracy}%`
   }</div>
-        <div class="label">Загальна точність</div>
+        <div class="label">${t('statAccuracy')}</div>
       </div>
     </div>
 
     <div class="card">
-      <h2>Точність по словах ${withAttempts.length ? '(найслабші зверху)' : ''}</h2>
+      <h2>${t('perWord')} ${withAttempts.length ? t('weakestFirst') : ''}</h2>
       ${
         withAttempts.length === 0
-          ? `<p class="muted">Ще немає спроб — зіграй раунд, щоб побачити статистику по кожному слову.</p>`
+          ? `<p class="muted">${t('noAttempts')}</p>`
           : `<div class="table-scroll"><table>
               <thead>
                 <tr>
-                  <th>Слово</th>
-                  <th>Переклад</th>
-                  <th>Спроб</th>
-                  <th>Точність</th>
+                  <th>${t('colWord')}</th>
+                  <th>${t('translation')}</th>
+                  <th>${t('colAttempts')}</th>
+                  <th>${t('colAccuracy')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -85,13 +85,6 @@ export function renderStatsView(container: HTMLElement, listId: string): void {
                   .join('')}
               </tbody>
             </table></div>`
-      }
-      ${
-        withoutAttempts.length > 0
-          ? `<p class="muted" style="margin-top:12px;">Ще не тренувались (${withoutAttempts.length}): ${withoutAttempts
-              .map((w) => displayGerman(w))
-              .join(', ')}</p>`
-          : ''
       }
     </div>
   `;

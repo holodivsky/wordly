@@ -1,4 +1,5 @@
 import { signIn } from '../account';
+import { getLang, setLang, t } from '../i18n';
 
 function describeSignInError(err: unknown): string {
   const code = (err as { code?: string }).code ?? '';
@@ -7,25 +8,28 @@ function describeSignInError(err: unknown): string {
     case 'auth/wrong-password':
     case 'auth/user-not-found':
     case 'auth/invalid-email':
-      return 'Невірна пошта або пароль.';
+      return t('loginInvalid');
     case 'auth/too-many-requests':
-      return 'Забагато невдалих спроб. Зачекай кілька хвилин і спробуй ще раз.';
+      return t('loginTooMany');
     case 'auth/network-request-failed':
-      return 'Немає з’єднання. Перевір інтернет.';
+      return t('loginNoNetwork');
     default:
-      return `Не вдалося увійти: ${code || String(err)}`;
+      return t('loginFailed', { error: code || String(err) });
   }
 }
 
 export function renderLoginView(container: HTMLElement, notice: string | null): void {
   container.innerHTML = `
-    <h1>Wordly</h1>
-    <p class="subtitle">Тренажер німецької лексики. Увійди, щоб побачити свої слова.</p>
+    <div class="row-between" style="margin-bottom:8px;">
+      <h1>Wordly</h1>
+      <button class="btn-link" id="lang-btn" type="button" title="${t('switchLangTitle')}">${t('switchLang')}</button>
+    </div>
+    <p class="subtitle">${t('loginSubtitle')}</p>
     <div class="card" style="max-width:360px;">
       <form id="login-form" style="display:flex; flex-direction:column; gap:10px;">
-        <input type="email" id="login-input" placeholder="Пошта" autocomplete="username" autocapitalize="none" required />
-        <input type="password" id="password-input" placeholder="Пароль" autocomplete="current-password" required />
-        <button class="btn btn-primary" id="login-btn" type="submit">Увійти</button>
+        <input type="email" id="login-input" placeholder="${t('email')}" autocomplete="username" autocapitalize="none" required />
+        <input type="password" id="password-input" placeholder="${t('password')}" autocomplete="current-password" required />
+        <button class="btn btn-primary" id="login-btn" type="submit">${t('signIn')}</button>
       </form>
       <div id="login-status" style="margin-top:12px;"></div>
     </div>
@@ -46,6 +50,11 @@ export function renderLoginView(container: HTMLElement, notice: string | null): 
   }
 
   if (notice) showError(notice);
+
+  container.querySelector<HTMLButtonElement>('#lang-btn')!.addEventListener('click', () => {
+    setLang(getLang() === 'uk' ? 'en' : 'uk');
+    renderLoginView(container, null);
+  });
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();

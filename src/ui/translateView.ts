@@ -1,4 +1,5 @@
 import { getApiKey, setApiKey } from '../apiKey';
+import { t } from '../i18n';
 import { addWordsToList, getList } from '../storage';
 import { suggestWords } from '../suggest';
 import type { Translation, WordCard } from '../translate';
@@ -7,9 +8,9 @@ import { ALL_POS, displayGerman, type Article, type PartOfSpeech } from '../type
 const PLUS_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>`;
 const CHECK_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
 const SEARCH_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>`;
-const ADD_LABEL = `${PLUS_ICON}<span>Додати</span>`;
-const ADDED_LABEL = `${CHECK_ICON}<span>Додано</span>`;
-const ADDED_FEEDBACK_MS = 1400;
+// The label is dropped on phones (see .btn-add in style.css) to leave the width to the field.
+const addLabel = () => `${PLUS_ICON}<span>${t('add')}</span>`;
+const addedLabel = () => `${CHECK_ICON}<span>${t('added')}</span>`;
 // Long enough that a word in progress isn't translated letter by letter, short enough to feel live.
 const LIVE_TRANSLATE_DELAY_MS = 500;
 const SUGGEST_DELAY_MS = 150;
@@ -30,39 +31,39 @@ export function renderTranslateView(container: HTMLElement, listId: string, onWo
     <div class="card">
       <form class="translate-form" id="translate-form">
         <div class="translate-field" id="translate-field">
-          <input type="text" id="translate-input" placeholder="Слово німецькою або українською" autocomplete="off" autocapitalize="none" enterkeyhint="search" aria-controls="suggestions" />
-          <button class="field-btn" id="translate-btn" type="submit" title="Переклад із прикладами й граматикою" aria-label="Переклад із прикладами й граматикою">${SEARCH_ICON}<span class="spinner" aria-hidden="true"></span></button>
+          <input type="text" id="translate-input" placeholder="${t('inputPlaceholder')}" autocomplete="off" autocapitalize="none" enterkeyhint="search" aria-controls="suggestions" />
+          <button class="field-btn" id="translate-btn" type="submit" title="${t('fullTitle')}" aria-label="${t('fullTitle')}">${SEARCH_ICON}<span class="spinner" aria-hidden="true"></span></button>
         </div>
-        <button class="btn btn-add" id="add-btn" type="submit" form="translate-result" title="Додати до слів" disabled>${ADD_LABEL}</button>
+        <button class="btn btn-add" id="add-btn" type="submit" form="translate-result" title="${t('addTitle')}" aria-label="${t('addTitle')}" disabled>${addLabel()}</button>
       </form>
       <ul class="suggestions" id="suggestions" role="listbox" hidden></ul>
       <div class="muted" id="translate-hint"></div>
-      <div id="translate-status"></div>
       <div id="translate-details" class="reveal" hidden>
         <div id="result-heading" style="font-size:20px; font-weight:700;"></div>
         <ol id="result-translations" style="margin:8px 0 0; padding-left:22px; font-size:16px;"></ol>
-        <button class="btn-link" id="more-btn" type="button" style="padding-left:0; margin-top:4px;">Приклади й граматика</button>
+        <button class="btn-link" id="more-btn" type="button" style="padding-left:0; margin-top:4px;">${t('moreBtn')}</button>
         <div id="result-extras" class="reveal" hidden>
-          <h2 style="margin-top:18px;">Приклади</h2>
+          <h2 style="margin-top:18px;">${t('examples')}</h2>
           <div id="result-examples"></div>
-          <h2 style="margin-top:18px;">Граматика</h2>
+          <h2 style="margin-top:18px;">${t('grammar')}</h2>
           <ul id="result-grammar" style="margin:0; padding-left:20px;"></ul>
         </div>
-        <h2 style="margin-top:18px;">Запис у таблицю слів</h2>
+        <h2 style="margin-top:18px;">${t('tableEntry')}</h2>
         <form class="word-row" id="translate-result">
-          <select id="result-article" aria-label="Артикль">
+          <select id="result-article" aria-label="${t('article')}">
             <option value="">—</option>
             <option value="der">der</option>
             <option value="die">die</option>
             <option value="das">das</option>
           </select>
-          <input type="text" id="result-german" aria-label="Німецьке слово" />
-          <input type="text" id="result-translation" aria-label="Переклад" />
-          <select id="result-pos" aria-label="Частина мови">
+          <input type="text" id="result-german" aria-label="${t('germanWord')}" />
+          <input type="text" id="result-translation" aria-label="${t('translation')}" />
+          <select id="result-pos" aria-label="${t('partOfSpeech')}">
             ${ALL_POS.map((p) => `<option value="${p}">${p}</option>`).join('')}
           </select>
         </form>
       </div>
+      <div id="translate-status"></div>
     </div>
   `;
 
@@ -98,6 +99,8 @@ export function renderTranslateView(container: HTMLElement, listId: string, onWo
   let suggestTimer: ReturnType<typeof setTimeout> | null = null;
   let suggestAbort: AbortController | null = null;
   let activeSuggestion = -1;
+  // Set once the word on screen has been saved; the Add button then stays off until the field's text changes.
+  let justAdded = false;
 
   function showStatus(text: string, kind: 'error' | 'success'): void {
     statusEl.innerHTML = '';
@@ -118,7 +121,7 @@ export function renderTranslateView(container: HTMLElement, listId: string, onWo
           (w) => w.german.toLowerCase() === typed || w.translation.toLowerCase().split(/,\s*/).includes(typed)
         )
       : undefined;
-    hintEl.textContent = known ? `Вже є у твоїх словах: ${displayGerman(known)} — ${known.translation}` : '';
+    hintEl.textContent = known ? t('alreadyHave', { word: `${displayGerman(known)} — ${known.translation}` }) : '';
   }
 
   // --- Result -------------------------------------------------------------
@@ -157,8 +160,8 @@ export function renderTranslateView(container: HTMLElement, listId: string, onWo
     moreBtn.hidden = false;
     detailsEl.classList.remove('is-stale');
     detailsEl.hidden = false;
-    addBtn.disabled = false;
-    statusEl.innerHTML = '';
+    addBtn.disabled = justAdded;
+    if (!justAdded) statusEl.innerHTML = '';
   }
 
   function showTranslation(translation: Translation): void {
@@ -270,7 +273,7 @@ export function renderTranslateView(container: HTMLElement, listId: string, onWo
         if (known) {
           const tag = document.createElement('span');
           tag.className = 'muted';
-          tag.textContent = 'вже є';
+          tag.textContent = t('knownTag');
           li.appendChild(tag);
         }
         // mousedown, not click: it fires before the field loses focus and the list is hidden.
@@ -315,6 +318,12 @@ export function renderTranslateView(container: HTMLElement, listId: string, onWo
 
   input.addEventListener('input', () => {
     cancelRequest();
+    if (justAdded) {
+      justAdded = false;
+      addBtn.innerHTML = addLabel();
+      addBtn.classList.remove('btn-added');
+      statusEl.innerHTML = '';
+    }
     updateHint();
     scheduleSuggestions();
     const text = input.value.trim();
@@ -357,7 +366,7 @@ export function renderTranslateView(container: HTMLElement, listId: string, onWo
     const german = germanEl.value.trim();
     const translation = translationEl.value.trim();
     if (!german || !translation) {
-      showStatus('Заповни і слово, і переклад.', 'error');
+      showStatus(t('fillBoth'), 'error');
       return;
     }
     const article = (articleEl.value || null) as Article | null;
@@ -365,19 +374,13 @@ export function renderTranslateView(container: HTMLElement, listId: string, onWo
       { german, article, translation, partOfSpeech: posEl.value as PartOfSpeech },
     ]);
     const shown = `${displayGerman({ german, article })} — ${translation}`;
-    cancelRequest();
-    clearResult();
-    showStatus(added ? `Додано: ${shown}` : `Таке слово вже є у твоїх словах: ${shown}`, added ? 'success' : 'error');
-    input.value = '';
-    updateHint();
-    input.focus();
+    showStatus(t(added ? 'addedWord' : 'duplicateWord', { word: shown }), added ? 'success' : 'error');
+    // The translation stays on screen; only the button changes, until a different word is typed.
+    justAdded = true;
+    addBtn.disabled = true;
     if (added) {
-      addBtn.innerHTML = ADDED_LABEL;
+      addBtn.innerHTML = addedLabel();
       addBtn.classList.add('btn-added');
-      setTimeout(() => {
-        addBtn.innerHTML = ADD_LABEL;
-        addBtn.classList.remove('btn-added');
-      }, ADDED_FEEDBACK_MS);
       onWordAdded();
     }
   });
@@ -386,11 +389,11 @@ export function renderTranslateView(container: HTMLElement, listId: string, onWo
 function renderKeyForm(container: HTMLElement, listId: string, onWordAdded: () => void): void {
   container.innerHTML = `
     <div class="card">
-      <h2>Переклад слова</h2>
-      <p class="subtitle">Щоб Claude перекладав слова прямо тут, встав API-ключ Anthropic. Достатньо зробити це один раз: ключ зберігається в закритій базі й підтягується після входу на будь-якому пристрої.</p>
+      <h2>${t('keyTitle')}</h2>
+      <p class="subtitle">${t('keyIntro')}</p>
       <form class="row" id="key-form">
         <input type="password" id="key-input" placeholder="sk-ant-…" autocomplete="off" style="flex:1; min-width:200px;" />
-        <button class="btn btn-primary" id="key-btn" type="submit">Зберегти ключ</button>
+        <button class="btn btn-primary" id="key-btn" type="submit">${t('saveKey')}</button>
       </form>
       <div id="key-status" style="margin-top:12px;"></div>
     </div>
@@ -411,7 +414,7 @@ function renderKeyForm(container: HTMLElement, listId: string, onWordAdded: () =
       statusEl.innerHTML = '';
       const el = document.createElement('div');
       el.className = 'msg msg-error';
-      el.textContent = `Не вдалося зберегти ключ: ${String(err)}`;
+      el.textContent = t('keySaveFailed', { error: String(err) });
       statusEl.appendChild(el);
       keyBtn.disabled = false;
     }

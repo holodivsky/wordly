@@ -8,6 +8,7 @@ import { renderTranslateView } from './ui/translateView';
 import { loadLists, createList, getActiveListId, getList } from './storage';
 import { displayLogin, signOutAccount, startAccountSync, watchAuth } from './account';
 import { forgetApiKey, loadApiKey } from './apiKey';
+import { getLang, setLang, t, type MessageKey } from './i18n';
 
 type Tab = 'translate' | 'game' | 'words';
 type WordsSection = 'list' | 'import' | 'stats';
@@ -18,10 +19,10 @@ const TAB_LABELS: Record<Tab, string> = {
   words: 'Words',
 };
 
-const SECTION_LABELS: Record<WordsSection, string> = {
-  list: 'Список',
-  import: 'Імпорт',
-  stats: 'Статистика',
+const SECTION_LABELS: Record<WordsSection, MessageKey> = {
+  list: 'sectionList',
+  import: 'sectionImport',
+  stats: 'sectionStats',
 };
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -59,7 +60,7 @@ function renderWordsTab(view: HTMLElement, listId: string): void {
   view.innerHTML = `
     <div class="row" style="margin-bottom:16px;">
       ${(Object.keys(SECTION_LABELS) as WordsSection[])
-        .map((s) => `<button data-section="${s}" class="btn ${s === section ? 'btn-primary' : ''}">${SECTION_LABELS[s]}</button>`)
+        .map((s) => `<button data-section="${s}" class="btn ${s === section ? 'btn-primary' : ''}">${t(SECTION_LABELS[s])}</button>`)
         .join('')}
     </div>
     <div id="section"></div>
@@ -74,7 +75,7 @@ function renderWordsTab(view: HTMLElement, listId: string): void {
       renderWordsView(container, listId);
       break;
     case 'import':
-      renderImportView(container, listId, () => navigate('game'));
+      renderImportView(container, listId, refreshWordCount);
       break;
     case 'stats':
       renderStatsView(container, listId);
@@ -100,7 +101,8 @@ function render(): void {
       <h1>Wordly</h1>
       <div class="row" style="gap:4px;">
         <span class="muted" id="account-login" style="font-size:13px;"></span>
-        <button class="btn-link" id="sign-out-btn">Вийти</button>
+        <button class="btn-link" id="lang-btn" title="${t('switchLangTitle')}">${t('switchLang')}</button>
+        <button class="btn-link" id="sign-out-btn">${t('signOut')}</button>
       </div>
     </div>
 
@@ -118,6 +120,10 @@ function render(): void {
   `;
 
   app.querySelector<HTMLSpanElement>('#account-login')!.textContent = displayLogin(currentUser);
+  app.querySelector<HTMLButtonElement>('#lang-btn')!.addEventListener('click', () => {
+    setLang(getLang() === 'uk' ? 'en' : 'uk');
+    render();
+  });
   app.querySelector<HTMLButtonElement>('#sign-out-btn')!.addEventListener('click', async () => {
     forgetApiKey();
     await signOutAccount(true);
@@ -143,7 +149,7 @@ function render(): void {
 }
 
 function showLoading(): void {
-  app.innerHTML = `<h1>Wordly</h1><p class="subtitle">Завантаження…</p>`;
+  app.innerHTML = `<h1>Wordly</h1><p class="subtitle">${t('loading')}</p>`;
 }
 
 window.addEventListener('hashchange', render);
@@ -166,7 +172,7 @@ watchAuth(async (user) => {
     await signOutAccount(false);
     renderLoginView(
       app,
-      denied ? 'Цей акаунт не має доступу до тренажера.' : `Не вдалося завантажити слова: ${String(err)}`
+      denied ? t('noAccess') : t('loadFailed', { error: String(err) })
     );
     return;
   }
