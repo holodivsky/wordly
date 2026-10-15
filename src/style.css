@@ -666,6 +666,38 @@ th {
 
 /* --- Quiz --- */
 
+/* Two-way switch for the game's direction, styled as a pill with the active half raised. */
+.direction-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.direction-toggle button {
+  padding: 9px 6px;
+  border: none;
+  border-radius: 9px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.direction-toggle button.active {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+
 .game-start h2 {
   font-size: 22px;
   margin-bottom: 6px;

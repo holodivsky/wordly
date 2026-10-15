@@ -82,6 +82,8 @@ const uk = {
 
   quizEmpty: 'Тут поки порожньо. Додай кілька слів — і можна грати.',
   quizTitle: 'Вгадай переклад',
+  quizTitleReverse: 'Вгадай німецьке слово',
+  directionLabel: 'Напрямок гри',
   quizIntro: '10 слів за раунд. До кожного — чотири варіанти.',
   wordsLabel: 'Які слова брати',
   filterAll: 'Усі',
@@ -233,6 +235,8 @@ const en: Record<MessageKey, string> = {
 
   quizEmpty: 'Nothing here yet. Add a few words and you can play.',
   quizTitle: 'Guess the translation',
+  quizTitleReverse: 'Guess the German word',
+  directionLabel: 'Game direction',
   quizIntro: '10 words per round. Four options for each.',
   wordsLabel: 'Which words to use',
   filterAll: 'All',

@@ -1,9 +1,28 @@
 import { getList, recordAnswerInList, updateWordInList } from '../storage';
-import { buildRound, type Question } from '../quiz';
+import { buildRound, type Direction, type Question } from '../quiz';
 import { accuracy, displayGerman, type Word } from '../types';
 import { t } from '../i18n';
 
 type Filter = 'all' | 'not-learned' | 'learned';
+
+const DIRECTION_KEY = 'gvt.quizDirection.v1';
+
+// The chosen direction is a per-browser preference; storage can be unavailable (private mode), so it falls back.
+function loadDirection(): Direction {
+  try {
+    return localStorage.getItem(DIRECTION_KEY) === 'uk-de' ? 'uk-de' : 'de-uk';
+  } catch {
+    return 'de-uk';
+  }
+}
+
+function saveDirection(direction: Direction): void {
+  try {
+    localStorage.setItem(DIRECTION_KEY, direction);
+  } catch {
+    // Only the preference is lost.
+  }
+}
 
 function filterWords(listId: string, filter: Filter): Word[] {
   const words = getList(listId)?.words ?? [];
@@ -14,6 +33,7 @@ function filterWords(listId: string, filter: Filter): Word[] {
 
 export function renderQuizView(container: HTMLElement, listId: string): void {
   let filter: Filter = 'not-learned';
+  let direction: Direction = loadDirection();
   renderStart();
 
   function renderStart(): void {
@@ -39,7 +59,11 @@ export function renderQuizView(container: HTMLElement, listId: string): void {
 
     container.innerHTML = `
       <div class="card game-start">
-        <h2>${t('quizTitle')}</h2>
+        <div class="direction-toggle" role="group" aria-label="${t('directionLabel')}">
+          <button type="button" data-direction="de-uk" class="${direction === 'de-uk' ? 'active' : ''}" aria-pressed="${direction === 'de-uk'}">DE → UA</button>
+          <button type="button" data-direction="uk-de" class="${direction === 'uk-de' ? 'active' : ''}" aria-pressed="${direction === 'uk-de'}">UA → DE</button>
+        </div>
+        <h2>${t(direction === 'de-uk' ? 'quizTitle' : 'quizTitleReverse')}</h2>
         <p class="subtitle">${t('quizIntro')}</p>
         <div class="game-progress">
           <div class="row-between">
@@ -69,6 +93,14 @@ export function renderQuizView(container: HTMLElement, listId: string): void {
       </div>
     `;
 
+    container.querySelectorAll<HTMLButtonElement>('.direction-toggle button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        direction = btn.dataset.direction as Direction;
+        saveDirection(direction);
+        renderStart();
+      });
+    });
+
     container.querySelectorAll<HTMLButtonElement>('.segmented button').forEach((btn) => {
       btn.addEventListener('click', () => {
         filter = btn.dataset.filter as Filter;
@@ -77,7 +109,7 @@ export function renderQuizView(container: HTMLElement, listId: string): void {
     });
 
     container.querySelector<HTMLButtonElement>('#start-btn')?.addEventListener('click', () => {
-      runRound(buildRound(pool, 10));
+      runRound(buildRound(pool, 10, direction));
     });
   }
 
@@ -99,7 +131,7 @@ export function renderQuizView(container: HTMLElement, listId: string): void {
           <div class="accuracy-bar">
             <div class="accuracy-bar-fill" style="width:${Math.round((index / total) * 100)}%; background:var(--accent);"></div>
           </div>
-          <div class="quiz-word">${displayGerman(q.word)}</div>
+          <div class="quiz-word">${q.prompt}</div>
           <span class="badge badge-${q.word.partOfSpeech}">${q.word.partOfSpeech}</span>
           <div class="quiz-options" style="margin-top:20px;">
             ${q.options
@@ -133,7 +165,7 @@ export function renderQuizView(container: HTMLElement, listId: string): void {
           const feedbackHolder = container.querySelector<HTMLDivElement>('#feedback-holder')!;
           feedbackHolder.innerHTML = `
             <div class="quiz-feedback ${isCorrect ? 'correct' : 'incorrect'}">
-              ${isCorrect ? t('answerCorrect') : t('answerWrong', { answer: q.word.translation })}
+              ${isCorrect ? t('answerCorrect') : t('answerWrong', { answer: q.answer })}
             </div>
             <div class="row-between" style="margin-top:12px;">
               <button class="btn ${learned ? 'btn-learned-active' : ''}" id="learned-toggle">
