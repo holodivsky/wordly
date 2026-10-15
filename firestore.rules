@@ -7,7 +7,7 @@ service cloud.firestore {
     // create an account of their own through the Auth API.
     function isAdmin() {
       return request.auth != null
-        && request.auth.uid in ['ADMIN_UID'];
+        && request.auth.uid in ['84ApwSvT75WC4PhW9K9zPs10YSO2'];
     }
 
     function isMember() {

@@ -5,7 +5,7 @@ import type { Word } from './types';
 
 // Must match isAdmin() in firestore.rules. The rules are what actually grant
 // access to other accounts; this list only decides whether to show the tab.
-export const ADMIN_UIDS: string[] = ['ADMIN_UID'];
+export const ADMIN_UIDS: string[] = ['84ApwSvT75WC4PhW9K9zPs10YSO2'];
 
 export function isAdmin(user: User | null): boolean {
   return user !== null && ADMIN_UIDS.includes(user.uid);
