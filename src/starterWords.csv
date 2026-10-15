@@ -1,0 +1,112 @@
+german,article,translation,partOfSpeech
+Erfahrung,die,досвід,Nomen
+Entwicklung,die,розвиток,Nomen
+Voraussetzung,die,передумова,Nomen
+Verantwortung,die,відповідальність,Nomen
+Möglichkeit,die,можливість,Nomen
+Rücksicht,die,зважання (на когось/щось),Nomen
+Eindruck,der,враження,Nomen
+Beziehung,die,стосунок,Nomen
+Vorteil,der,перевага,Nomen
+Nachteil,der,недолік,Nomen
+Herausforderung,die,виклик,Nomen
+Bedeutung,die,значення,Nomen
+Zusammenhang,der,зв'язок,Nomen
+Auswirkung,die,вплив/наслідок,Nomen
+Ursache,die,причина,Nomen
+Folge,die,наслідок,Nomen
+Maßnahme,die,захід,Nomen
+Wirtschaft,die,економіка,Nomen
+Umwelt,die,навколишнє середовище,Nomen
+Gesellschaft,die,суспільство,Nomen
+Bereich,der,сфера/область,Nomen
+Fähigkeit,die,здатність,Nomen
+Entscheidung,die,рішення,Nomen
+Verpflichtung,die,зобов'язання,Nomen
+Sicherheit,die,безпека,Nomen
+Gefahr,die,небезпека,Nomen
+Absicht,die,намір,Nomen
+Meinung,die,думка,Nomen
+Wahrnehmung,die,сприйняття,Nomen
+Vorschlag,der,пропозиція,Nomen
+Kritik,die,критика,Nomen
+Verhalten,das,поведінка,Nomen
+Zweifel,der,сумнів,Nomen
+Zukunft,die,майбутнє,Nomen
+Vergangenheit,die,минуле,Nomen
+Gegenwart,die,теперішнє,Nomen
+Ereignis,das,подія,Nomen
+Tatsache,die,факт,Nomen
+Anspruch,der,вимога/претензія,Nomen
+sich befinden,,знаходитися,Verb
+sich beschäftigen (mit),,займатися (чимось),Verb
+sich engagieren,,активно долучатися,Verb
+berücksichtigen,,враховувати,Verb
+vermeiden,,уникати,Verb
+betreffen,,стосуватися,Verb
+bestehen (aus),,складатися (з),Verb
+sich verändern,,змінюватися,Verb
+beeinflussen,,впливати,Verb
+sich entwickeln,,розвиватися,Verb
+erweitern,,розширювати,Verb
+reduzieren,,зменшувати,Verb
+vorschlagen,,пропонувати,Verb
+sich beschweren,,скаржитися,Verb
+verzichten (auf),,відмовлятися (від),Verb
+sich lohnen,,бути вартим/окупатися,Verb
+bedauern,,шкодувати (про щось),Verb
+voraussetzen,,передбачати (як умову),Verb
+verfügen (über),,мати у розпорядженні,Verb
+sich auseinandersetzen (mit),,розбиратися з/дискутувати,Verb
+gewährleisten,,забезпечувати/гарантувати,Verb
+sich richten (nach),,орієнтуватися на,Verb
+überzeugen,,переконувати,Verb
+sich eignen (für),,підходити для,Verb
+anstreben,,прагнути до,Verb
+zuverlässig,,надійний,Adjektiv
+angemessen,,належний/відповідний,Adjektiv
+erforderlich,,необхідний,Adjektiv
+überflüssig,,зайвий,Adjektiv
+selbstverständlich,,самі собою зрозумілий,Adjektiv
+bedeutend,,значний,Adjektiv
+gründlich,,ретельний,Adjektiv
+ausreichend,,достатній,Adjektiv
+gerecht,,справедливий,Adjektiv
+verantwortlich,,відповідальний,Adjektiv
+widersprüchlich,,суперечливий,Adjektiv
+vielfältig,,різноманітний,Adjektiv
+vergleichbar,,порівнянний,Adjektiv
+unabhängig,,незалежний,Adjektiv
+abhängig,,залежний,Adjektiv
+nachhaltig,,сталий/тривалий,Adjektiv
+wesentlich,,суттєвий,Adjektiv
+üblich,,звичний,Adjektiv
+dringend,,терміновий,Adjektiv
+begrenzt,,обмежений,Adjektiv
+allerdings,,однак/щоправда,Adverb
+dennoch,,все ж таки,Adverb
+inzwischen,,тим часом,Adverb
+gegebenenfalls,,за потреби,Adverb
+vermutlich,,ймовірно,Adverb
+keineswegs,,аж ніяк,Adverb
+überwiegend,,переважно,Adverb
+zunehmend,,дедалі більше,Adverb
+obwohl,,хоча,Konjunktion
+während,,тоді як/тимчасом як,Konjunktion
+sodass,,так що,Konjunktion
+falls,,якщо/у разі якщо,Konjunktion
+indem,,тим що/шляхом того що,Konjunktion
+trotz,,незважаючи на,Präposition
+wegen,,через/з причини,Präposition
+aufgrund,,на підставі,Präposition
+innerhalb,,в межах/протягом,Präposition
+außerhalb,,поза межами,Präposition
+jemand,,хтось,Pronomen
+niemand,,ніхто,Pronomen
+etwas,,щось,Pronomen
+nichts,,нічого,Pronomen
+einander,,один одного,Pronomen
+beide,,обидва,Numerale
+doppelt,,подвійний/вдвічі,Numerale
+mehrfach,,неодноразово/багаторазово,Numerale
+sämtliche,,усі без винятку,Numerale

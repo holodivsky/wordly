@@ -10,6 +10,7 @@ import {
   setOwnerUid,
   setSyncPushHandler,
 } from './storage';
+import { starterWords } from './starterWords';
 import type { Word, WordList } from './types';
 
 // Accounts are created by hand in the Firebase console and allow-listed in
@@ -58,9 +59,10 @@ async function flushPush(): Promise<void> {
 
 /**
  * Brings the signed-in account's words onto this device and keeps the two in
- * step from then on. On an account's first sign-in here, words added on this
- * device before anyone signed in are merged into the account, and another
- * account's cached words are dropped. After that the device's cache is used
+ * step from then on. An account with no word list in the cloud yet (a new one)
+ * starts with the starter words. On an account's first sign-in here, words
+ * added on this device before anyone signed in are merged into the account,
+ * and another account's cached words are dropped. After that the device's cache is used
  * right away (so the app also opens offline) and the cloud copy replaces it
  * as soon as it arrives.
  */
@@ -70,7 +72,7 @@ export async function startAccountSync(user: User, onRemoteChange: () => void): 
   if (owner !== user.uid) {
     const snap = await getDoc(doc(db, 'users', user.uid));
     const remoteWords = snap.exists() ? ((snap.data().words ?? []) as Word[]) : null;
-    const words = mergeWords(remoteWords ?? [], owner ? [] : loadAllWords());
+    const words = mergeWords(remoteWords ?? starterWords(), owner ? [] : loadAllWords());
     if (!remoteWords || words.length !== remoteWords.length) {
       await pushWords(user.uid, words);
     } else {

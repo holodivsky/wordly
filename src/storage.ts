@@ -147,6 +147,25 @@ export function clearLocalData(): void {
   localStorage.removeItem(OWNER_KEY);
 }
 
+function toWord(nw: NewWord): Word {
+  return {
+    id: generateId(),
+    german: nw.german.trim(),
+    article: nw.article,
+    translation: nw.translation.trim(),
+    partOfSpeech: nw.partOfSpeech,
+    learned: false,
+    correct: 0,
+    incorrect: 0,
+    lastPracticed: null,
+  };
+}
+
+/** Turns word cards into fresh, never-practised words, dropping duplicates (same german + translation). */
+export function createWords(newWords: NewWord[]): Word[] {
+  return mergeWords([], newWords.map(toWord));
+}
+
 /** Adds new words to a list, skipping ones that already exist there (same german + translation). */
 export function addWordsToList(listId: string, newWords: NewWord[]): { added: number; skipped: number } {
   const lists = loadLists();
@@ -166,17 +185,7 @@ export function addWordsToList(listId: string, newWords: NewWord[]): { added: nu
       continue;
     }
     existingKeys.add(key);
-    updatedWords.push({
-      id: generateId(),
-      german: nw.german.trim(),
-      article: nw.article,
-      translation: nw.translation.trim(),
-      partOfSpeech: nw.partOfSpeech,
-      learned: false,
-      correct: 0,
-      incorrect: 0,
-      lastPracticed: null,
-    });
+    updatedWords.push(toWord(nw));
     added++;
   }
 
