@@ -93,16 +93,17 @@ nav.tabs {
 nav.tabs button {
   background: none;
   border: none;
-  padding: 10px 14px;
+  padding: 10px 4px;
   font-size: 14px;
   color: var(--muted);
   cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   transition: color 0.15s ease, border-color 0.15s ease;
-  /* The three tabs share the full width. */
+  /* The tabs share the full width; kept to one line so four still fit on a phone. */
   flex: 1;
   text-align: center;
+  white-space: nowrap;
 }
 
 nav.tabs button:hover {
@@ -435,6 +436,41 @@ nav.tabs button:focus-visible {
 
 .table-scroll {
   overflow-x: auto;
+}
+
+.account-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.account-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.08s ease;
+}
+
+.account-row span {
+  font-size: 13px;
+}
+
+.account-row:hover {
+  border-color: var(--accent);
+}
+
+.account-row:active {
+  transform: scale(0.99);
 }
 
 @media (min-width: 600px) {

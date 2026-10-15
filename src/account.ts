@@ -46,7 +46,8 @@ let lastPushedRevision: string | null = null;
 function pushWords(uid: string, words: Word[]): Promise<void> {
   const revision = generateRevision();
   lastPushedRevision = revision;
-  return setDoc(doc(db, 'users', uid), { words, revision, updatedAt: serverTimestamp() });
+  // Merged so the email field written at sign-in (shown in the admin tab) survives.
+  return setDoc(doc(db, 'users', uid), { words, revision, updatedAt: serverTimestamp() }, { merge: true });
 }
 
 async function flushPush(): Promise<void> {
@@ -82,6 +83,9 @@ export async function startAccountSync(user: User, onRemoteChange: () => void): 
     replaceAllWords(words);
     setOwnerUid(user.uid);
   }
+
+  // Lets the admin tab show whose list this is; a failure here only costs that label.
+  setDoc(doc(db, 'users', user.uid), { email: user.email ?? '' }, { merge: true }).catch(() => {});
 
   setSyncPushHandler((lists: WordList[]) => {
     pendingPush = () => pushWords(user.uid, lists[0]?.words ?? []);

@@ -1,7 +1,9 @@
 import type { User } from 'firebase/auth';
 import { renderImportView } from './ui/importView';
 import { renderQuizView } from './ui/quizView';
-import { renderWordsView } from './ui/wordsView';
+import { localWordStore, renderWordsView } from './ui/wordsView';
+import { renderAdminView } from './ui/adminView';
+import { isAdmin } from './admin';
 import { renderStatsView } from './ui/statsView';
 import { renderLoginView } from './ui/loginView';
 import { renderTranslateView } from './ui/translateView';
@@ -14,13 +16,14 @@ import { getLang, setLang, t, type MessageKey } from './i18n';
 // Inside loops over tabs the loop variable is also called `t`.
 const translate = t;
 
-type Tab = 'translate' | 'game' | 'words';
+type Tab = 'translate' | 'game' | 'words' | 'admin';
 type WordsSection = 'list' | 'import' | 'stats';
 
 const TAB_LABELS: Record<Tab, MessageKey> = {
   translate: 'tabTranslate',
   game: 'tabGame',
   words: 'tabWords',
+  admin: 'tabAdmin',
 };
 
 const SECTION_LABELS: Record<WordsSection, MessageKey> = {
@@ -44,11 +47,19 @@ function ensureActiveListId(): string {
   return lists[0].id;
 }
 
-// The hash is "#<tab>" or, inside Words, "#words/<section>".
+// The hash is "#<tab>", or "#words/<section>" inside Words, or "#admin/<uid>" for one account in Admin.
 function currentTab(): Tab {
   const tab = location.hash.replace('#', '').split('/')[0];
+  if (tab === 'admin') return isAdmin(currentUser) ? 'admin' : 'translate';
   return tab === 'game' || tab === 'words' ? tab : 'translate';
 }
+
+function visibleTabs(): Tab[] {
+  return (Object.keys(TAB_LABELS) as Tab[]).filter((tab) => tab !== 'admin' || isAdmin(currentUser));
+}
+
+// Views that keep a live connection (the admin's account editor) hand back a cleanup, run before the next render.
+let disposeView: (() => void) | null = null;
 
 function currentSection(): WordsSection {
   const section = location.hash.split('/')[1];
@@ -76,13 +87,13 @@ function renderWordsTab(view: HTMLElement, listId: string): void {
   const container = view.querySelector<HTMLDivElement>('#section')!;
   switch (section) {
     case 'list':
-      renderWordsView(container, listId);
+      renderWordsView(container, localWordStore(listId));
       break;
     case 'import':
       renderImportView(container, listId, refreshWordCount);
       break;
     case 'stats':
-      renderStatsView(container, listId);
+      renderStatsView(container, getList(listId)?.words ?? []);
       break;
   }
 }
@@ -95,6 +106,8 @@ function refreshWordCount(): void {
 }
 
 function render(): void {
+  disposeView?.();
+  disposeView = null;
   if (!currentUser) return;
   const activeListId = ensureActiveListId();
   const activeList = getList(activeListId)!;
@@ -111,7 +124,7 @@ function render(): void {
     </div>
 
     <nav class="tabs">
-      ${(Object.keys(TAB_LABELS) as Tab[])
+      ${visibleTabs()
         .map(
           (t) =>
             `<button data-tab="${t}" class="${t === tab ? 'active' : ''}">${translate(TAB_LABELS[t])}${
@@ -148,6 +161,9 @@ function render(): void {
       break;
     case 'words':
       renderWordsTab(view, activeListId);
+      break;
+    case 'admin':
+      disposeView = renderAdminView(view, currentUser.uid);
       break;
   }
 }

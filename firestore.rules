@@ -1,18 +1,25 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // The app has no public sign-up: the two accounts below are created by
-    // hand in the Firebase console (Authentication → Users). Listing their
-    // UIDs here is what keeps everyone else out, even someone who manages to
+    // The app has no public sign-up: the accounts below are created by hand
+    // in the Firebase console (Authentication → Users). Listing their UIDs
+    // here is what keeps everyone else out, even someone who manages to
     // create an account of their own through the Auth API.
-    function isMember() {
+    function isAdmin() {
       return request.auth != null
-        && request.auth.uid in ['YpZshKlYwubuBvwfyzaG82PZVDq1', '1XcepLsKCEdbml9UWMjwUWd94663'];
+        && request.auth.uid in ['ADMIN_UID'];
     }
 
-    // Each account's single word list.
+    function isMember() {
+      return isAdmin()
+        || (request.auth != null
+          && request.auth.uid in ['YpZshKlYwubuBvwfyzaG82PZVDq1', '1XcepLsKCEdbml9UWMjwUWd94663']);
+    }
+
+    // Each account's single word list. The admin can see and edit them all
+    // (the Admin tab lists the whole collection).
     match /users/{uid} {
-      allow read, write: if isMember() && request.auth.uid == uid;
+      allow read, write: if (isMember() && request.auth.uid == uid) || isAdmin();
     }
 
     // The shared Anthropic API key used for translating words.

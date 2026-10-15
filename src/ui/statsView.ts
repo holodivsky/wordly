@@ -1,5 +1,4 @@
-import { getList } from '../storage';
-import { accuracy, displayGerman } from '../types';
+import { accuracy, displayGerman, type Word } from '../types';
 import { t } from '../i18n';
 
 function accuracyColor(acc: number): string {
@@ -8,25 +7,15 @@ function accuracyColor(acc: number): string {
   return 'var(--bad)';
 }
 
-export function renderStatsView(container: HTMLElement, listId: string): void {
-  const words = getList(listId)?.words ?? [];
-
-  if (words.length === 0) {
-    container.innerHTML = `<div class="card empty-state">${t('statsEmpty')}</div>`;
-    return;
-  }
-
+/** The four summary tiles: total, learned, answers given, overall accuracy. */
+export function statCardsHtml(words: Word[]): string {
   const learnedCount = words.filter((w) => w.learned).length;
   const totalCorrect = words.reduce((s, w) => s + w.correct, 0);
   const totalIncorrect = words.reduce((s, w) => s + w.incorrect, 0);
   const totalAttempts = totalCorrect + totalIncorrect;
   const overallAccuracy = totalAttempts === 0 ? null : Math.round((totalCorrect / totalAttempts) * 100);
 
-  const withAttempts = words
-    .filter((w) => w.correct + w.incorrect > 0)
-    .sort((a, b) => (accuracy(a) ?? 0) - (accuracy(b) ?? 0));
-
-  container.innerHTML = `
+  return `
     <div class="stat-cards">
       <div class="stat-card">
         <div class="value">${words.length}</div>
@@ -47,6 +36,21 @@ export function renderStatsView(container: HTMLElement, listId: string): void {
         <div class="label">${t('statAccuracy')}</div>
       </div>
     </div>
+  `;
+}
+
+export function renderStatsView(container: HTMLElement, words: Word[]): void {
+  if (words.length === 0) {
+    container.innerHTML = `<div class="card empty-state">${t('statsEmpty')}</div>`;
+    return;
+  }
+
+  const withAttempts = words
+    .filter((w) => w.correct + w.incorrect > 0)
+    .sort((a, b) => (accuracy(a) ?? 0) - (accuracy(b) ?? 0));
+
+  container.innerHTML = `
+    ${statCardsHtml(words)}
 
     <div class="card">
       <h2>${t('perWord')} ${withAttempts.length ? t('weakestFirst') : ''}</h2>
