@@ -13,6 +13,8 @@ export function isAdmin(user: User | null): boolean {
 
 export interface Account {
   uid: string;
+  /** A name the admin gave the account; empty if none. */
+  name: string;
   /** Empty until the account signs in with a version of the app that records it. */
   email: string;
   words: Word[];
@@ -24,6 +26,7 @@ function toAccount(uid: string, data: Record<string, unknown>): Account {
   const updatedAt = data.updatedAt as { toDate?: () => Date } | undefined;
   return {
     uid,
+    name: typeof data.name === 'string' ? data.name : '',
     email: typeof data.email === 'string' ? data.email : '',
     words: Array.isArray(data.words) ? (data.words as Word[]) : [],
     updatedAt: updatedAt?.toDate?.() ?? null,
@@ -46,6 +49,11 @@ export function watchAccount(uid: string, onChange: (account: Account) => void):
     if (data.revision && data.revision === lastAdminRevision) return;
     onChange(toAccount(uid, data));
   });
+}
+
+/** Names an account for the admin tab. An empty name falls back to the email. */
+export function renameAccount(uid: string, name: string): Promise<void> {
+  return setDoc(doc(db, 'users', uid), { name: name.trim() }, { merge: true });
 }
 
 /** Replaces an account's word list. Its owner's open app picks the change up like any other device's. */

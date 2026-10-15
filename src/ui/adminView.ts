@@ -1,11 +1,18 @@
-import { listAccounts, saveAccountWords, watchAccount, type Account } from '../admin';
+import { listAccounts, renameAccount, saveAccountWords, watchAccount, type Account } from '../admin';
 import { getLang, t } from '../i18n';
 import type { Word } from '../types';
 import { statCardsHtml } from './statsView';
 import { renderWordsView, type WordStore } from './wordsView';
 
-function accountLabel(account: Pick<Account, 'uid' | 'email'>): string {
-  return account.email || t('adminNoEmail', { id: account.uid.slice(0, 6) });
+/** The name the admin gave the account, else its email, else "No name". */
+function accountLabel(account: Pick<Account, 'name' | 'email'>): string {
+  return account.name || account.email || t('adminUnnamed');
+}
+
+/** What goes under the label: the email when a name hides it, or why there is none yet. */
+function accountSubtitle(account: Pick<Account, 'name' | 'email'>): string {
+  if (account.name) return account.email;
+  return account.email ? '' : t('adminNoEmailHint');
 }
 
 function formatDate(date: Date | null): string {
@@ -61,9 +68,11 @@ async function renderAccountList(container: HTMLElement, myUid: string): Promise
     row.className = 'account-row';
     const name = document.createElement('strong');
     name.textContent = accountLabel(account) + (account.uid === myUid ? ` ${t('adminYou')}` : '');
+    const subtitle = accountSubtitle(account);
     const details = document.createElement('span');
     details.className = 'muted';
     details.textContent = [
+      ...(subtitle ? [subtitle] : []),
       t('adminWords', { count: account.words.length }),
       t('adminLearned', { count: account.words.filter((w) => w.learned).length }),
       t('adminAccuracy', { value: overallAccuracy(account.words) }),
@@ -80,7 +89,10 @@ async function renderAccountList(container: HTMLElement, myUid: string): Promise
 function renderAccount(container: HTMLElement, uid: string, myUid: string): () => void {
   container.innerHTML = `
     <p style="margin:0 0 12px;"><a class="btn-link" href="#admin" style="padding-left:0;">${t('adminBack')}</a></p>
-    <h2 id="account-title"></h2>
+    <div class="row" style="gap:8px; margin-bottom:12px;">
+      <h2 id="account-title" style="margin:0;"></h2>
+      <button class="btn-link" id="rename-btn" type="button">${t('adminRename')}</button>
+    </div>
     <p class="muted" id="account-active" style="margin:-6px 0 16px; font-size:13px;"></p>
     <div id="account-status"></div>
     <div id="account-stats"><p class="muted">${t('loading')}</p></div>
@@ -93,6 +105,27 @@ function renderAccount(container: HTMLElement, uid: string, myUid: string): () =
   const wordsEl = container.querySelector<HTMLDivElement>('#account-words')!;
 
   let words: Word[] = [];
+  let current: Account | null = null;
+
+  container.querySelector<HTMLButtonElement>('#rename-btn')!.addEventListener('click', async () => {
+    if (!current) return;
+    const name = prompt(t('adminRenamePrompt'), current.name || current.email);
+    if (name === null) return;
+    try {
+      await renameAccount(uid, name);
+      current = { ...current, name: name.trim() };
+      showAccountHeader(current);
+    } catch (err) {
+      showError(statusEl, t('adminSaveFailed', { error: String(err) }));
+    }
+  });
+
+  function showAccountHeader(account: Account): void {
+    titleEl.textContent = accountLabel(account) + (uid === myUid ? ` ${t('adminYou')}` : '');
+    activeEl.textContent = [accountSubtitle(account), t('adminLastActive', { date: formatDate(account.updatedAt) })]
+      .filter(Boolean)
+      .join(' · ');
+  }
 
   function refreshStats(): void {
     statsEl.innerHTML = statCardsHtml(words);
@@ -121,8 +154,8 @@ function renderAccount(container: HTMLElement, uid: string, myUid: string): () =
   };
 
   const unsubscribe = watchAccount(uid, (account) => {
-    titleEl.textContent = accountLabel(account) + (uid === myUid ? ` ${t('adminYou')}` : '');
-    activeEl.textContent = t('adminLastActive', { date: formatDate(account.updatedAt) });
+    current = account;
+    showAccountHeader(account);
     words = account.words;
     refreshStats();
     renderWordsView(wordsEl, store);
